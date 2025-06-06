@@ -5,7 +5,9 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -14,8 +16,115 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+type IMEState struct {
+	isComposing     bool
+	compositionText []rune
+	cursorOffset    int
+}
+
+type IMETextarea struct {
+	textarea.Model
+	imeState IMEState
+}
+
+func NewIMETextarea() IMETextarea {
+	return IMETextarea{
+		Model:    textarea.New(),
+		imeState: IMEState{},
+	}
+}
+
+func (m *IMETextarea) isIMEComposition(msg tea.KeyMsg) bool {
+	for _, r := range msg.Runes {
+		if (r >= 0x3040 && r <= 0x309F) ||
+			(r >= 0x30A0 && r <= 0x30FF) ||
+			(r >= 0x4E00 && r <= 0x9FAF) ||
+			unicode.In(r, unicode.Hiragana, unicode.Katakana, unicode.Han) {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *IMETextarea) UpdateWithIME(msg tea.Msg) (IMETextarea, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		if m.isIMEComposition(msg) && len(msg.Runes) > 0 {
+			m.imeState.isComposing = true
+			m.imeState.compositionText = msg.Runes
+			return *m, nil
+		} else if m.imeState.isComposing {
+			if msg.String() == "enter" || msg.String() == " " {
+				if len(m.imeState.compositionText) > 0 {
+					compositionStr := string(m.imeState.compositionText)
+					m.Model.InsertString(compositionStr)
+				}
+				m.imeState.isComposing = false
+				m.imeState.compositionText = nil
+				return *m, nil
+			} else if msg.String() == "esc" {
+				m.imeState.isComposing = false
+				m.imeState.compositionText = nil
+				return *m, nil
+			}
+		}
+	}
+
+	model, cmd := m.Model.Update(msg)
+	m.Model = model
+	return *m, cmd
+}
+
+func (m IMETextarea) ViewWithIME() string {
+	if !m.imeState.isComposing || len(m.imeState.compositionText) == 0 {
+		return m.Model.View()
+	}
+
+	currentText := m.Model.Value()
+	lines := strings.Split(currentText, "\n")
+	
+	cursorRow := m.Model.Line()
+	lineInfo := m.Model.LineInfo()
+	cursorCol := lineInfo.ColumnOffset
+	if cursorRow >= len(lines) {
+		cursorRow = len(lines) - 1
+	}
+	if cursorRow < 0 {
+		cursorRow = 0
+	}
+
+	if len(lines) == 0 {
+		lines = []string{""}
+	}
+
+	currentLine := lines[cursorRow]
+	if cursorCol > len([]rune(currentLine)) {
+		cursorCol = len([]rune(currentLine))
+	}
+
+	lineRunes := []rune(currentLine)
+	compositionStr := string(m.imeState.compositionText)
+	
+	newLineRunes := make([]rune, 0, len(lineRunes)+len(m.imeState.compositionText))
+	newLineRunes = append(newLineRunes, lineRunes[:cursorCol]...)
+	newLineRunes = append(newLineRunes, []rune(compositionStr)...)
+	newLineRunes = append(newLineRunes, lineRunes[cursorCol:]...)
+	
+	lines[cursorRow] = string(newLineRunes)
+	modifiedText := strings.Join(lines, "\n")
+	
+	tempModel := m.Model
+	originalValue := tempModel.Value()
+	tempModel.SetValue(modifiedText)
+	
+	result := tempModel.View()
+	tempModel.SetValue(originalValue)
+	
+	return result
+}
+
 type model struct {
-	textarea     textarea.Model
+	textarea     IMETextarea
 	viewport     viewport.Model
 	textinput    textinput.Model
 	filename     string
@@ -29,7 +138,7 @@ type model struct {
 }
 
 func initialModel(filename string, isTemp bool, tempFilename string) model {
-	ta := textarea.New()
+	ta := NewIMETextarea()
 	ta.Placeholder = "テキストを入力してください..."
 	ta.Focus()
 
@@ -158,7 +267,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			default:
 				if m.mode == "edit" {
-					m.textarea, cmd = m.textarea.Update(msg)
+					m.textarea, cmd = m.textarea.UpdateWithIME(msg)
 					cmds = append(cmds, cmd)
 				} else {
 					m.viewport, cmd = m.viewport.Update(msg)
@@ -182,7 +291,7 @@ func (m model) View() string {
 			m.textinput.View(),
 		)
 	} else if m.mode == "edit" {
-		content = m.textarea.View()
+		content = m.textarea.ViewWithIME()
 	} else {
 		content = m.viewport.View()
 	}
