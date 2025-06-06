@@ -5,8 +5,10 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -15,15 +17,18 @@ import (
 type model struct {
 	textarea     textarea.Model
 	viewport     viewport.Model
+	textinput    textinput.Model
 	filename     string
 	content      string
-	mode         string // "view" or "edit"
+	mode         string // "view", "edit", or "save_as"
 	width        int
 	height       int
 	statusMsg    string
+	isTemp       bool
+	tempFilename string
 }
 
-func initialModel(filename string) model {
+func initialModel(filename string, isTemp bool, tempFilename string) model {
 	ta := textarea.New()
 	ta.Placeholder = "テキストを入力してください..."
 	ta.Focus()
@@ -32,6 +37,11 @@ func initialModel(filename string) model {
 	vp.Style = lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("62"))
+
+	ti := textinput.New()
+	ti.Placeholder = "保存するファイル名を入力してください..."
+	ti.CharLimit = 256
+	ti.Width = 50
 
 	content := ""
 	if filename != "" {
@@ -43,13 +53,21 @@ func initialModel(filename string) model {
 	ta.SetValue(content)
 	vp.SetContent(content)
 
+	displayName := filename
+	if isTemp {
+		displayName = "新規ファイル (一時)"
+	}
+
 	return model{
-		textarea:  ta,
-		viewport:  vp,
-		filename:  filename,
-		content:   content,
-		mode:      "edit",
-		statusMsg: fmt.Sprintf("ファイル: %s | モード: 編集", filename),
+		textarea:     ta,
+		viewport:     vp,
+		textinput:    ti,
+		filename:     filename,
+		content:      content,
+		mode:         "edit",
+		statusMsg:    fmt.Sprintf("ファイル: %s | モード: 編集", displayName),
+		isTemp:       isTemp,
+		tempFilename: tempFilename,
 	}
 }
 
@@ -69,42 +87,83 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.textarea.SetHeight(msg.Height - 6)
 		m.viewport.Width = msg.Width - 4
 		m.viewport.Height = msg.Height - 6
+		m.textinput.Width = msg.Width - 10
 
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "esc":
-			return m, tea.Quit
-
-		case "ctrl+s":
-			if m.filename != "" {
-				content := m.textarea.Value()
-				err := ioutil.WriteFile(m.filename, []byte(content), 0644)
-				if err != nil {
-					m.statusMsg = fmt.Sprintf("保存エラー: %v", err)
-				} else {
-					m.statusMsg = fmt.Sprintf("保存完了: %s", m.filename)
-				}
-			} else {
-				m.statusMsg = "ファイル名が指定されていません"
-			}
-
-		case "ctrl+v":
-			if m.mode == "edit" {
-				m.mode = "view"
-				m.viewport.SetContent(m.textarea.Value())
-				m.statusMsg = fmt.Sprintf("ファイル: %s | モード: 表示", m.filename)
-			} else {
+		if m.mode == "save_as" {
+			switch msg.String() {
+			case "ctrl+c", "esc":
 				m.mode = "edit"
-				m.statusMsg = fmt.Sprintf("ファイル: %s | モード: 編集", m.filename)
+				m.statusMsg = "保存をキャンセルしました"
+			case "enter":
+				newFilename := m.textinput.Value()
+				if newFilename != "" {
+					content := m.textarea.Value()
+					err := ioutil.WriteFile(newFilename, []byte(content), 0644)
+					if err != nil {
+						m.statusMsg = fmt.Sprintf("保存エラー: %v", err)
+					} else {
+						m.filename = newFilename
+						m.isTemp = false
+						m.statusMsg = fmt.Sprintf("保存完了: %s", newFilename)
+					}
+					m.mode = "edit"
+					m.textinput.SetValue("")
+				} else {
+					m.statusMsg = "ファイル名を入力してください"
+				}
+			default:
+				m.textinput, cmd = m.textinput.Update(msg)
+				cmds = append(cmds, cmd)
 			}
+		} else {
+			switch msg.String() {
+			case "ctrl+c", "esc":
+				return m, tea.Quit
 
-		default:
-			if m.mode == "edit" {
-				m.textarea, cmd = m.textarea.Update(msg)
-				cmds = append(cmds, cmd)
-			} else {
-				m.viewport, cmd = m.viewport.Update(msg)
-				cmds = append(cmds, cmd)
+			case "ctrl+s":
+				if m.isTemp {
+					m.mode = "save_as"
+					m.textinput.Focus()
+					m.statusMsg = "保存するファイル名を入力してください (Enter: 保存, Esc: キャンセル)"
+				} else if m.filename != "" {
+					content := m.textarea.Value()
+					err := ioutil.WriteFile(m.filename, []byte(content), 0644)
+					if err != nil {
+						m.statusMsg = fmt.Sprintf("保存エラー: %v", err)
+					} else {
+						m.statusMsg = fmt.Sprintf("保存完了: %s", m.filename)
+					}
+				} else {
+					m.statusMsg = "ファイル名が指定されていません"
+				}
+
+			case "ctrl+v":
+				if m.mode == "edit" {
+					m.mode = "view"
+					m.viewport.SetContent(m.textarea.Value())
+					displayName := m.filename
+					if m.isTemp {
+						displayName = "新規ファイル (一時)"
+					}
+					m.statusMsg = fmt.Sprintf("ファイル: %s | モード: 表示", displayName)
+				} else {
+					m.mode = "edit"
+					displayName := m.filename
+					if m.isTemp {
+						displayName = "新規ファイル (一時)"
+					}
+					m.statusMsg = fmt.Sprintf("ファイル: %s | モード: 編集", displayName)
+				}
+
+			default:
+				if m.mode == "edit" {
+					m.textarea, cmd = m.textarea.Update(msg)
+					cmds = append(cmds, cmd)
+				} else {
+					m.viewport, cmd = m.viewport.Update(msg)
+					cmds = append(cmds, cmd)
+				}
 			}
 		}
 	}
@@ -115,7 +174,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	var content string
 	
-	if m.mode == "edit" {
+	if m.mode == "save_as" {
+		content = lipgloss.JoinVertical(
+			lipgloss.Left,
+			"ファイル名を入力してください:",
+			"",
+			m.textinput.View(),
+		)
+	} else if m.mode == "edit" {
 		content = m.textarea.View()
 	} else {
 		content = m.viewport.View()
@@ -141,24 +207,45 @@ func (m model) View() string {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("使用方法: owntexteditor <ファイル名>")
-		fmt.Println("例: owntexteditor sample.txt")
-		os.Exit(1)
-	}
-
-	filename := os.Args[1]
+	var filename string
+	var isTemp bool
+	var tempFilename string
 	
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
+	if len(os.Args) < 2 {
+		timestamp := time.Now().Format("20060102_150405")
+		tempFilename = fmt.Sprintf("temp_%s.txt", timestamp)
+		filename = tempFilename
+		isTemp = true
+		
 		file, err := os.Create(filename)
 		if err != nil {
-			log.Fatalf("ファイル作成エラー: %v", err)
+			log.Fatalf("一時ファイル作成エラー: %v", err)
 		}
 		file.Close()
+		
+		fmt.Printf("一時ファイルを作成しました: %s\n", filename)
+	} else {
+		filename = os.Args[1]
+		isTemp = false
+		
+		if _, err := os.Stat(filename); os.IsNotExist(err) {
+			file, err := os.Create(filename)
+			if err != nil {
+				log.Fatalf("ファイル作成エラー: %v", err)
+			}
+			file.Close()
+		}
 	}
 
-	p := tea.NewProgram(initialModel(filename), tea.WithAltScreen())
+	p := tea.NewProgram(initialModel(filename, isTemp, tempFilename), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
+	}
+	
+	if isTemp && tempFilename != "" {
+		if _, err := os.Stat(tempFilename); err == nil {
+			os.Remove(tempFilename)
+			fmt.Printf("一時ファイルを削除しました: %s\n", tempFilename)
+		}
 	}
 }
