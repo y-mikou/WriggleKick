@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -141,20 +142,29 @@ func (m model) View() string {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("使用方法: owntexteditor <ファイル名>")
-		fmt.Println("例: owntexteditor sample.txt")
-		os.Exit(1)
-	}
-
-	filename := os.Args[1]
+	var filename string
 	
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
+	if len(os.Args) < 2 {
+		timestamp := time.Now().Format("20060102_150405")
+		filename = fmt.Sprintf("temp_%s.txt", timestamp)
+		
 		file, err := os.Create(filename)
 		if err != nil {
-			log.Fatalf("ファイル作成エラー: %v", err)
+			log.Fatalf("一時ファイル作成エラー: %v", err)
 		}
 		file.Close()
+		
+		fmt.Printf("一時ファイルを作成しました: %s\n", filename)
+	} else {
+		filename = os.Args[1]
+		
+		if _, err := os.Stat(filename); os.IsNotExist(err) {
+			file, err := os.Create(filename)
+			if err != nil {
+				log.Fatalf("ファイル作成エラー: %v", err)
+			}
+			file.Close()
+		}
 	}
 
 	p := tea.NewProgram(initialModel(filename), tea.WithAltScreen())
