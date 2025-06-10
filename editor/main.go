@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -19,7 +18,6 @@ import (
 type IMEState struct {
 	isComposing     bool
 	compositionText []rune
-	cursorOffset    int
 }
 
 type IMETextarea struct {
@@ -82,7 +80,7 @@ func (m IMETextarea) ViewWithIME() string {
 
 	currentText := m.Model.Value()
 	lines := strings.Split(currentText, "\n")
-	
+
 	cursorRow := m.Model.Line()
 	lineInfo := m.Model.LineInfo()
 	cursorCol := lineInfo.ColumnOffset
@@ -104,22 +102,22 @@ func (m IMETextarea) ViewWithIME() string {
 
 	lineRunes := []rune(currentLine)
 	compositionStr := string(m.imeState.compositionText)
-	
+
 	newLineRunes := make([]rune, 0, len(lineRunes)+len(m.imeState.compositionText))
 	newLineRunes = append(newLineRunes, lineRunes[:cursorCol]...)
 	newLineRunes = append(newLineRunes, []rune(compositionStr)...)
 	newLineRunes = append(newLineRunes, lineRunes[cursorCol:]...)
-	
+
 	lines[cursorRow] = string(newLineRunes)
 	modifiedText := strings.Join(lines, "\n")
-	
+
 	tempModel := m.Model
 	originalValue := tempModel.Value()
 	tempModel.SetValue(modifiedText)
-	
+
 	result := tempModel.View()
 	tempModel.SetValue(originalValue)
-	
+
 	return result
 }
 
@@ -154,7 +152,7 @@ func initialModel(filename string, isTemp bool, tempFilename string) model {
 
 	content := ""
 	if filename != "" {
-		if data, err := ioutil.ReadFile(filename); err == nil {
+		if data, err := os.ReadFile(filename); err == nil {
 			content = string(data)
 		}
 	}
@@ -208,7 +206,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				newFilename := m.textinput.Value()
 				if newFilename != "" {
 					content := m.textarea.Value()
-					err := ioutil.WriteFile(newFilename, []byte(content), 0644)
+					err := os.WriteFile(newFilename, []byte(content), 0644)
 					if err != nil {
 						m.statusMsg = fmt.Sprintf("保存エラー: %v", err)
 					} else {
@@ -237,7 +235,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.statusMsg = "保存するファイル名を入力してください (Enter: 保存, Esc: キャンセル)"
 				} else if m.filename != "" {
 					content := m.textarea.Value()
-					err := ioutil.WriteFile(m.filename, []byte(content), 0644)
+					err := os.WriteFile(m.filename, []byte(content), 0644)
 					if err != nil {
 						m.statusMsg = fmt.Sprintf("保存エラー: %v", err)
 					} else {
@@ -282,7 +280,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	var content string
-	
+
 	if m.mode == "save_as" {
 		content = lipgloss.JoinVertical(
 			lipgloss.Left,
@@ -319,24 +317,24 @@ func main() {
 	var filename string
 	var isTemp bool
 	var tempFilename string
-	
+
 	if len(os.Args) < 2 {
 		timestamp := time.Now().Format("20060102_150405")
 		tempFilename = fmt.Sprintf("temp_%s.txt", timestamp)
 		filename = tempFilename
 		isTemp = true
-		
+
 		file, err := os.Create(filename)
 		if err != nil {
 			log.Fatalf("一時ファイル作成エラー: %v", err)
 		}
 		file.Close()
-		
+
 		fmt.Printf("一時ファイルを作成しました: %s\n", filename)
 	} else {
 		filename = os.Args[1]
 		isTemp = false
-		
+
 		if _, err := os.Stat(filename); os.IsNotExist(err) {
 			file, err := os.Create(filename)
 			if err != nil {
@@ -350,7 +348,7 @@ func main() {
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 	}
-	
+
 	if isTemp && tempFilename != "" {
 		if _, err := os.Stat(tempFilename); err == nil {
 			os.Remove(tempFilename)
