@@ -8,11 +8,11 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/bubbles/v2/textarea"
+	"github.com/charmbracelet/bubbles/v2/textinput"
+	"github.com/charmbracelet/bubbles/v2/viewport"
+	tea "github.com/charmbracelet/bubbletea/v2"
+	"github.com/charmbracelet/lipgloss/v2"
 )
 
 type IMEState struct {
@@ -140,15 +140,12 @@ func initialModel(filename string, isTemp bool, tempFilename string) model {
 	ta.Placeholder = "テキストを入力してください..."
 	ta.Focus()
 
-	vp := viewport.New(80, 20)
-	vp.Style = lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("62"))
+	vp := viewport.New(viewport.WithWidth(80), viewport.WithHeight(20))
 
 	ti := textinput.New()
 	ti.Placeholder = "保存するファイル名を入力してください..."
 	ti.CharLimit = 256
-	ti.Width = 50
+	ti.SetWidth(50)
 
 	content := ""
 	if filename != "" {
@@ -192,9 +189,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.textarea.SetWidth(msg.Width - 4)
 		m.textarea.SetHeight(msg.Height - 6)
-		m.viewport.Width = msg.Width - 4
-		m.viewport.Height = msg.Height - 6
-		m.textinput.Width = msg.Width - 10
+		m.viewport.SetWidth(msg.Width - 4)
+		m.viewport.SetHeight(msg.Height - 6)
+		m.textinput.SetWidth(msg.Width - 10)
 
 	case tea.KeyMsg:
 		if m.mode == "save_as" {
