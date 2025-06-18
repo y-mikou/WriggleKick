@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"time"
@@ -42,7 +41,7 @@ func initialModel(filename string, isTemp bool, tempFilename string) model {
 
 	content := ""
 	if filename != "" {
-		if data, err := ioutil.ReadFile(filename); err == nil {
+		if data, err := os.ReadFile(filename); err == nil {
 			content = string(data)
 		}
 	}
@@ -96,7 +95,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				newFilename := m.textinput.Value()
 				if newFilename != "" {
 					content := m.textarea.Value()
-					err := ioutil.WriteFile(newFilename, []byte(content), 0644)
+					err := os.WriteFile(newFilename, []byte(content), 0644)
 					if err != nil {
 						m.statusMsg = fmt.Sprintf("保存エラー: %v", err)
 					} else {
@@ -115,7 +114,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		} else {
 			switch msg.String() {
-			case "ctrl+c", "esc":
+			case "ctrl+q", "esc":
 				return m, tea.Quit
 
 			case "ctrl+s":
@@ -125,7 +124,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.statusMsg = "保存するファイル名を入力してください (Enter: 保存, Esc: キャンセル)"
 				} else if m.filename != "" {
 					content := m.textarea.Value()
-					err := ioutil.WriteFile(m.filename, []byte(content), 0644)
+					err := os.WriteFile(m.filename, []byte(content), 0644)
 					if err != nil {
 						m.statusMsg = fmt.Sprintf("保存エラー: %v", err)
 					} else {
@@ -135,24 +134,44 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.statusMsg = "ファイル名が指定されていません"
 				}
 
-			case "ctrl+v":
-				if m.mode == "edit" {
-					m.mode = "view"
-					m.viewport.SetContent(m.textarea.Value())
-					displayName := m.filename
-					if m.isTemp {
-						displayName = "新規ファイル (一時)"
+			case "alt+s":
+				if m.isTemp {
+					m.mode = "save_as"
+					m.textinput.Focus()
+					m.statusMsg = "保存するファイル名を入力してください (Enter: 保存, Esc: キャンセル)"
+				} else if m.filename != "" {
+					m.mode = "save_as"
+					m.textinput.Focus()
+					m.statusMsg = "保存するファイル名を入力してください (Enter: 保存, Esc: キャンセル)"
+					content := m.textarea.Value()
+					err := os.WriteFile(m.filename, []byte(content), 0644)
+					if err != nil {
+						m.statusMsg = fmt.Sprintf("保存エラー: %v", err)
+					} else {
+						m.statusMsg = fmt.Sprintf("保存完了: %s", m.filename)
 					}
-					m.statusMsg = fmt.Sprintf("ファイル: %s | モード: 表示", displayName)
 				} else {
-					m.mode = "edit"
-					displayName := m.filename
-					if m.isTemp {
-						displayName = "新規ファイル (一時)"
-					}
-					m.statusMsg = fmt.Sprintf("ファイル: %s | モード: 編集", displayName)
+					m.statusMsg = "ファイル名が指定されていません"
 				}
 
+				/*			case "ctrl+k":
+							if m.mode == "edit" {
+								m.mode = "view"
+								m.viewport.SetContent(m.textarea.Value())
+								displayName := m.filename
+								if m.isTemp {
+									displayName = "新規ファイル (一時)"
+								}
+								m.statusMsg = fmt.Sprintf("ファイル: %s | モード: 表示", displayName)
+							} else {
+								m.mode = "edit"
+								displayName := m.filename
+								if m.isTemp {
+									displayName = "新規ファイル (一時)"
+								}
+								m.statusMsg = fmt.Sprintf("ファイル: %s | モード: 編集", displayName)
+							}
+				*/
 			default:
 				if m.mode == "edit" {
 					m.textarea, cmd = m.textarea.Update(msg)
@@ -170,7 +189,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	var content string
-	
+
 	if m.mode == "save_as" {
 		content = lipgloss.JoinVertical(
 			lipgloss.Left,
@@ -192,7 +211,8 @@ func (m model) View() string {
 
 	helpText := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
-		Render("Ctrl+S: 保存 | Ctrl+V: 表示/編集切替 | Ctrl+C/Esc: 終了")
+		/*Render("Ctrl+s: 保存 | Alt+s: 別名保存 | Ctrl+k: 表示/編集切替 | Ctrl+q/Esc: 終了")*/
+		Render("Ctrl+s: 保存 | Alt+s: 別名保存 | Ctrl+q/Esc: 終了")
 
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
@@ -207,24 +227,24 @@ func main() {
 	var filename string
 	var isTemp bool
 	var tempFilename string
-	
+
 	if len(os.Args) < 2 {
 		timestamp := time.Now().Format("20060102_150405")
 		tempFilename = fmt.Sprintf("temp_%s.txt", timestamp)
 		filename = tempFilename
 		isTemp = true
-		
+
 		file, err := os.Create(filename)
 		if err != nil {
 			log.Fatalf("一時ファイル作成エラー: %v", err)
 		}
 		file.Close()
-		
+
 		fmt.Printf("一時ファイルを作成しました: %s\n", filename)
 	} else {
 		filename = os.Args[1]
 		isTemp = false
-		
+
 		if _, err := os.Stat(filename); os.IsNotExist(err) {
 			file, err := os.Create(filename)
 			if err != nil {
@@ -238,7 +258,7 @@ func main() {
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 	}
-	
+
 	if isTemp && tempFilename != "" {
 		if _, err := os.Stat(tempFilename); err == nil {
 			os.Remove(tempFilename)
