@@ -169,7 +169,7 @@ if [[ ${action} =~ [eidv]$ ]] ; then
     'd')  cat "${tmpfileF}" >> "${tmpfileH}"
           mv  "${tmpfileH}" "${inputFile}"
           ;;
-    'v')  "${selected_viewer}" "{tmpfileB}"
+    'v')  "${selected_viewer}" "${tmpfileB}"
           ;;
 
     *)    echo '不正な引数です。'
