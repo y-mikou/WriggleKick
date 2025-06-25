@@ -4,6 +4,12 @@
 
 ---
 
+![Image](https://github.com/user-attachments/assets/e4edf682-590c-4708-8880-6cfde85481c1)
+
+![Image](https://github.com/user-attachments/assets/61b10ada-989e-4668-ba6a-b1fb68658945)
+
+---
+
 # 目的
 - ハルナアウトラインの終了で失ったアウトライン編集体験を再取得する。
 - 枯れた技術・簡易な手段で実装し、完成後のメンテナンスコストを低減する。
