@@ -51,18 +51,18 @@ if [[ ${#inputFile} = 0 ]] ; then
   exit 2
 fi
 
-if [[ ! -f $inputFile ]] ; then
-  echo "$inputFile なんてファイルないです"
+if [[ ! -f ${inputFile} ]] ; then
+  echo "${inputFile} なんてファイルないです"
   exit 1
 fi
 
-if [[ $action =~ [edimv]$ ]] && [[ ${#indexNo} = 0 ]] ; then
+if [[ ${action} =~ [edimv]$ ]] && [[ ${#indexNo} = 0 ]] ; then
   echo '引数3:対象ノード番号を指定して下さい'
   action='t'
 fi
 
-if [[ $action =~ ^[0-9]+$ ]] && [[ ${#indexNo} = 0 ]] ; then
-  indexNo=$action
+if [[ ${action} =~ ^[0-9]+$ ]] && [[ ${#indexNo} = 0 ]] ; then
+  indexNo=${action}
   action='e'
 fi
 
@@ -77,7 +77,9 @@ tmpfileF=$(mktemp)
 
 # 生成した一時ファイルを削除する
 function rm_tmpfile {
-  [[ -f "$tmpfile" ]] && rm -f "$tmpfile"
+  [[ -f "${tmpfileH}" ]] && rm -f "${tmpfileH}"
+  [[ -f "${tmpfileB}" ]] && rm -f "${tmpfileB}"
+  [[ -f "${tmpfileF}" ]] && rm -f "${tmpfileF}"
 }
 # 正常終了したとき
 trap rm_tmpfile EXIT
@@ -95,8 +97,8 @@ if [[ ${action} == 't' ]] ; then
       depth=$(echo "${indexlist[arrycnt]}" | cut -d: -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
 
       printf "%03d " $cnt
-      seq $depth | while read -r line; do printf '　'; done
-      case "$depth" in
+      seq ${depth} | while read -r line; do printf '　'; done
+      case "${depth}" in
          '1') printf '📚️ '
               ;;
          [2]) printf '└📗 '
@@ -126,45 +128,48 @@ if [[ ${action} == 't' ]] ; then
   exit 0
 fi
 
-if [[ $action =~ [eidv]$ ]] ; then
-  cp "${inputFile}" "${inputFile}_bk" 
+if [[ ${action} =~ [eidv]$ ]] ; then
+
+  #バックアップ作成
+  cp -b --suffix=$(date +%Y%m%d) "${inputFile}" "${inputFile}_"
+  
   readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
   startLine=$(echo "${indexlist[$((indexNo-1))]}" | cut -d: -f 1)
   endLine=$(echo "${indexlist[((indexNo))]}" | cut -d: -f 1)
 
   
-  if [[ $indexNo -le 0 ]] || [[ $indexNo -gt $maxCnt ]] ; then
-    echo "$indexNo番目のノードは存在しません"
+  if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
+    echo "${indexNo}番目のノードは存在しません"
     exit 5
   else
-    if [[ $indexNo -eq 1 ]]; then
-      echo '' > tmpFileH
-      cat "${inputFile}" | sed -n "1, $((endLine-1))p" > tmpfileB 
-      tail -n +$((endLine)) "${inputFile}" > tmpfileF
+    if [[ ${indexNo} -eq 1 ]]; then
+      echo '' > "${tmpfileH}"
+      cat "${inputFile}" | sed -n "1, $((endLine-1))p" > "${tmpfileB}"
+      tail -n +$((endLine)) "${inputFile}" > "${tmpfileF}"
     else
-      if [[ $indexNo -eq $maxCnt ]]; then
-        cat "${inputFile}" | head -n "$((startLine-1))" > tmpfileH
-        cat "${inputFile}" | tail -n +$((startLine))  > tmpfileB 
-        echo '' > tmpfileF
+      if [[ ${indexNo} -eq $maxCnt ]]; then
+        cat "${inputFile}" | head -n "$((startLine-1))" > "${tmpfileH}"
+        cat "${inputFile}" | tail -n +$((startLine))  > "${tmpfileB}" 
+        echo '' > "${tmpfileF}"
       else
-        cat "${inputFile}" | head -n "$((startLine-1))" > tmpfileH
-        cat "${inputFile}" | sed -n "$((startLine)), $((endLine-1))p" > tmpfileB 
-        tail -n +$((endLine)) "${inputFile}" > tmpfileF
+        cat "${inputFile}" | head -n "$((startLine-1))" > "${tmpfileH}"
+        cat "${inputFile}" | sed -n "$((startLine)), $((endLine-1))p" > "${tmpfileB}" 
+        tail -n +$((endLine)) "${inputFile}" > "${tmpfileF}"
       fi
     fi
   fi
 
   case $action in
-    'e')  ${selected_editor} tmpfileB
+    'e')  "${selected_editor}" "${tmpfileB}"
           wait
-          cat tmpfileB >> tmpfileH
-          cat tmpfileF >> tmpfileH
-          mv  tmpfileH "${inputFile}"
+          cat "${tmpfileB}" >> "${tmpfileH}"
+          cat "${tmpfileF}" >> "${tmpfileH}"
+          mv  "${tmpfileH}" "${inputFile}"
           ;;
-    'd')  cat tmpfileF >> tmpfileH
-          mv  tmpfileH "${inputFile}"
+    'd')  cat "${tmpfileF}" >> "${tmpfileH}"
+          mv  "${tmpfileH}" "${inputFile}"
           ;;
-    'v')  ${selected_viewer} tmpfileB
+    'v')  "${selected_viewer}" "{tmpfileB}"
           ;;
 
     *)    echo '不正な引数です。'
