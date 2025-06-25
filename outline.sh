@@ -131,7 +131,7 @@ fi
 if [[ ${action} =~ [eidv]$ ]] ; then
 
   #バックアップ作成
-  cp -b --suffix=$(date +%Y%m%d) "${inputFile}" "${inputFile}_"
+  cp -b --suffix=_$(date +%Y%m%d) "${inputFile}" "${inputFile}_bk"
   
   readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
   startLine=$(echo "${indexlist[$((indexNo-1))]}" | cut -d: -f 1)
