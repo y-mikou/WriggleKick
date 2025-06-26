@@ -61,6 +61,11 @@ if [[ ${action} =~ [edimv]$ ]] && [[ ${#indexNo} = 0 ]] ; then
   action='t'
 fi
 
+if [[ ${action} =~ [ml|mr|mu|md] ]] && [[ ${#indexNo} = 0 ]] ; then
+  echo '引数3:対象ノード番号を指定して下さい'
+  action='t'
+fi
+
 if [[ ${action} =~ ^[0-9]+$ ]] && [[ ${#indexNo} = 0 ]] ; then
   indexNo=${action}
   action='e'
@@ -86,11 +91,40 @@ trap rm_tmpfile EXIT
 # 異常終了したとき
 trap 'trap - EXIT; rm_tmpfile; exit -1' INT PIPE TERM
 
-#ノードの検出
-readarray -t indexlist < <(grep -P '^\.+.+' ${inputFile})
-maxCnt="${#indexlist[@]}"
+
+if [[ ${action:0:1} == 'm' ]] ; then
+
+  readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
+ 
+  tgtLine="$(echo ${indexlist[((indexNo-1))]} | cut -d: -f 1)"
+  replaceFrom="$(echo ${indexlist[((indexNo-1))]} | cut -d: -f 2)"
+  depth=$(echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l)
+  
+  if [[ ${action:1:1} == 'l' ]] ; then
+    if [[ $depth -le 1 ]] ; then
+      echo 'それ以上浅くできません'
+      exit 1
+    else
+      sed -i -e "$tgtLine s/^\.\./\./g" ${inputFile}
+      action='t'
+    fi
+  fi
+  if [[ ${action:1:1} == 'r' ]] ; then
+    if [[ $depth -ge 10 ]] ; then
+     echo 'それ以上深くできません'
+      exit 1
+    else
+      sed -i -e "$tgtLine s/^/\./g" ${inputFile}
+      action='t'
+    fi
+  fi  
+fi
 
 if [[ ${action} == 't' ]] ; then
+  #ノードの検出
+  readarray -t indexlist < <(grep -P '^\.+.+' ${inputFile})
+  maxCnt="${#indexlist[@]}"
+
   seq $((maxCnt)) | {
     while read -r cnt ; do
       arrycnt=$((cnt-1))
@@ -131,9 +165,10 @@ fi
 if [[ ${action} =~ [eidv]$ ]] ; then
 
   #バックアップ作成
-  cp -b --suffix=_$(date +%Y%m%d) "${inputFile}" "${inputFile}_bk"
+  cp -b --suffix=_$(date +%Y%m%d%hh%mm%ss) "${inputFile}" "${inputFile}_bk"
   
   readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
+  maxCnt="${#indexlist[@]}"
   startLine=$(echo "${indexlist[$((indexNo-1))]}" | cut -d: -f 1)
   endLine=$(echo "${indexlist[((indexNo))]}" | cut -d: -f 1)
 
@@ -171,7 +206,6 @@ if [[ ${action} =~ [eidv]$ ]] ; then
           ;;
     'v')  "${selected_viewer}" "${tmpfileB}"
           ;;
-
     *)    echo '不正な引数です。'
   esac
 
