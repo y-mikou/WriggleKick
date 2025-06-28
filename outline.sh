@@ -75,15 +75,19 @@ if [[ -f ${inputFile} ]] && [[ ${#action} = 0 ]] ; then
   action='t'
 fi
 
-# 一時ファイルを作る
+# 一時ファイルを作
 tmpfileH=$(mktemp)
 tmpfileB=$(mktemp)
+tmpfileT=$(mktemp)
 tmpfileF=$(mktemp)
+tmpfile1=$(mktemp)
+tmpfile2=$(mktemp)
 
 # 生成した一時ファイルを削除する
 function rm_tmpfile {
   [[ -f "${tmpfileH}" ]] && rm -f "${tmpfileH}"
   [[ -f "${tmpfileB}" ]] && rm -f "${tmpfileB}"
+  [[ -f "${tmpfileT}" ]] && rm -f "${tmpfileT}"
   [[ -f "${tmpfileF}" ]] && rm -f "${tmpfileF}"
 }
 # 正常終了したとき
@@ -124,15 +128,44 @@ if [[ ${action:0:1} == 'm' ]] ; then
             action='t'
           fi
           ;;
-    'u')  echo '上移動'
-    　　　startLineT=$(echo "${indexlist[$((indexNo-2))]}" | cut -d: -f 1)
-          endLineT=$(echo "${indexlist[((indexNo-1))]}" | cut -d: -f 1)
-    　　　startLineB=$(echo "${indexlist[$((indexNo-1))]}" | cut -d: -f 1)
-          endLineB=$(echo "${indexlist[((indexNo))]}" | cut -d: -f 1)
+    'u')  startLineT=$(echo ${indexlistN[$((indexNo-2))]} | cut -d: -f 1)
+          endLineT=$(echo $((($(echo ${indexlistN[$((indexNo-1))]} | cut -d: -f 1))-1)))
 
+          startLineB=$(echo ${indexlistN[$((indexNo-1))]} | cut -d: -f 1)
+          endLineB=$(echo $((($(echo ${indexlistN[$((indexNo))]} | cut -d: -f 1))-1)))
+          (
+          cat "${inputFile}" | head -n "$((startLineT-1))" > "${tmpfileH}"
+          cat "${inputFile}" | sed -n "${startLineB}, ${endLineB}p" > "${tmpfileB}" 
+          cat "${inputFile}" | sed -n "${startLineT}, ${endLineT}p" > "${tmpfileT}" 
+          tail -n +$((endLineB+1)) "${inputFile}" > "${tmpfileF}"
+          wait
+          )
+          (
+            cat "${tmpfileH}" "${tmpfileB}" > "${tmpfile1}"
+            cat "${tmpfileT}" "${tmpfileF}" > "${tmpfile2}"
+            wait
+          )
+          cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
           exit 0
           ;;
-    'd')  echo '下移動'
+    'd')  startLineT=$(echo ${indexlistN[$((indexNo))]} | cut -d: -f 1)
+          endLineT=$(echo $((($(echo ${indexlistN[$((indexNo+1))]} | cut -d: -f 1))-1)))
+
+          startLineB=$(echo ${indexlistN[$((indexNo-1))]} | cut -d: -f 1)
+          endLineB=$(echo $((($(echo ${indexlistN[$((indexNo))]} | cut -d: -f 1))-1)))
+          (
+          cat "${inputFile}" | head -n "$((startLineB-1))" > "${tmpfileH}"
+          cat "${inputFile}" | sed -n "${startLineB}, ${endLineB}p" > "${tmpfileB}" 
+          cat "${inputFile}" | sed -n "${startLineT}, ${endLineT}p" > "${tmpfileT}" 
+          tail -n +$((endLineT+1)) "${inputFile}" > "${tmpfileF}"
+          wait
+          )
+          (
+            cat "${tmpfileH}" "${tmpfileT}" > "${tmpfile1}"
+            cat "${tmpfileB}" "${tmpfileF}" > "${tmpfile2}"
+            wait
+          )
+          cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
           exit 0
           ;;
     *)    echo 'err'
