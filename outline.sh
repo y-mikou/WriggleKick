@@ -93,31 +93,52 @@ trap 'trap - EXIT; rm_tmpfile; exit -1' INT PIPE TERM
 
 
 if [[ ${action:0:1} == 'm' ]] ; then
-
-  readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
- 
-  tgtLine="$(echo ${indexlist[((indexNo-1))]} | cut -d: -f 1)"
-  replaceFrom="$(echo ${indexlist[((indexNo-1))]} | cut -d: -f 2)"
-  depth=$(echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l)
-  
-  if [[ ${action:1:1} == 'l' ]] ; then
-    if [[ $depth -le 1 ]] ; then
-      echo 'それ以上浅くできません'
-      exit 1
-    else
-      sed -i -e "$tgtLine s/^\.\./\./g" ${inputFile}
-      action='t'
-    fi
+  #ノードの検出
+  readarray -t indexlistN < <(grep -nP '^\.+.+' ${inputFile})
+  maxCnt="${#indexlistN[@]}"
+  if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
+    echo "${indexNo}番目のノードは存在しません"
+    exit 5
   fi
-  if [[ ${action:1:1} == 'r' ]] ; then
-    if [[ $depth -ge 10 ]] ; then
-     echo 'それ以上深くできません'
-      exit 1
-    else
-      sed -i -e "$tgtLine s/^/\./g" ${inputFile}
-      action='t'
-    fi
-  fi  
+    
+  tgtLine="$(echo ${indexlistN[((indexNo-1))]} | cut -d: -f 1)"
+  replaceFrom="$(echo ${indexlistN[((indexNo-1))]} | cut -d: -f 2)"
+  depth=$(echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l)
+
+  direction="${action:1:1}"
+
+  case "${direction}" in
+    'l')  if [[ $depth -le 1 ]] ; then
+            echo 'それ以上浅くできません'
+            exit 1
+          else
+            sed -i -e "$tgtLine s/^\.\./\./g" ${inputFile}
+            action='t'
+          fi
+          ;;
+    'r')  if [[ $depth -ge 10 ]] ; then
+            echo 'それ以上深くできません'
+            exit 1
+          else
+            sed -i -e "$tgtLine s/^/\./g" ${inputFile}
+            action='t'
+          fi
+          ;;
+    'u')  echo '上移動'
+    　　　startLineT=$(echo "${indexlist[$((indexNo-2))]}" | cut -d: -f 1)
+          endLineT=$(echo "${indexlist[((indexNo-1))]}" | cut -d: -f 1)
+    　　　startLineB=$(echo "${indexlist[$((indexNo-1))]}" | cut -d: -f 1)
+          endLineB=$(echo "${indexlist[((indexNo))]}" | cut -d: -f 1)
+
+          exit 0
+          ;;
+    'd')  echo '下移動'
+          exit 0
+          ;;
+    *)    echo 'err'
+          exit 1
+          ;;
+  esac
 fi
 
 if [[ ${action} == 't' ]] ; then
@@ -172,7 +193,6 @@ if [[ ${action} =~ [eidv]$ ]] ; then
   startLine=$(echo "${indexlist[$((indexNo-1))]}" | cut -d: -f 1)
   endLine=$(echo "${indexlist[((indexNo))]}" | cut -d: -f 1)
 
-  
   if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
     echo "${indexNo}番目のノードは存在しません"
     exit 5
