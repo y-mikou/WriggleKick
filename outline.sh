@@ -172,6 +172,95 @@ if [[ ${action:0:1} == 'm' ]] ; then
           exit 1
           ;;
   esac
+
+  (bash "${0}" "${inputFile}" 't')
+  exit 0
+
+fi
+
+if [[ ${action} = 'i' ]] ; then
+  nlString='New Node'
+
+  readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
+  maxCnt=${#indexlist[@]}
+
+  if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
+    echo "${indexNo}番目のノードは存在しません"
+    exit 5
+  fi
+
+  #バックアップ作成
+  cp -b --suffix=_$(date +%Y%m%d%h%m%s) "${inputFile}" "${inputFile}_bk"
+  
+  depth=$(echo "${indexlist[$((indexNo-1))]}" | cut -d: -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+
+  firstHalfEndLine=$(($(echo "${indexlist[$((indexNo))]}" | cut -d: -f 1)-1))
+  secondHalfStartLine=$(($(echo "${indexlist[$((indexNo))]}" | cut -d: -f 1)))
+
+  dots=$(seq ${depth} | while read -r line; do printf '.'; done)
+  echo "${dots}${nlString}" > "${tmpfileB}"
+  cat "${inputFile}" | head -n "$((firstHalfEndLine))" > "${tmpfileH}"
+
+  if [[ ${indexNo} -eq ${maxCnt} ]] ;then
+    awk 1 "${inputFile}" "${tmpfileB}" > "${tmpfile1}"
+    cat "${tmpfile1}" > "${inputFile}"
+
+  else
+    cat "${inputFile}" | tail -n +$((secondHalfStartLine))  > "${tmpfileF}"
+    cat "${tmpfileH}" "${tmpfileB}" "${tmpfileF}" > "${inputFile}"
+  fi
+
+  bash "${0}" "${inputFile}" 't'
+  exit 0
+
+fi
+
+if [[ ${action} =~ [edv]$ ]] ; then
+
+  #バックアップ作成
+  cp -b --suffix=_$(date +%Y%m%d%h%m%s) "${inputFile}" "${inputFile}_bk"
+  
+  readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
+  maxCnt="${#indexlist[@]}"
+  startLine=$(echo "${indexlist[$((indexNo-1))]}" | cut -d: -f 1)
+  endLine=$(echo "${indexlist[((indexNo))]}" | cut -d: -f 1)
+
+  if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
+    echo "${indexNo}番目のノードは存在しません"
+    exit 5
+  else
+    if [[ ${indexNo} -eq 1 ]]; then
+      echo '' > "${tmpfileH}"
+      cat "${inputFile}" | sed -n "1, $((endLine-1))p" > "${tmpfileB}"
+      tail -n +$((endLine)) "${inputFile}" > "${tmpfileF}"
+    else
+      if [[ ${indexNo} -eq $maxCnt ]]; then
+        cat "${inputFile}" | head -n "$((startLine-1))" > "${tmpfileH}"
+        cat "${inputFile}" | tail -n +$((startLine))  > "${tmpfileB}" 
+        echo '' > "${tmpfileF}"
+      else
+        cat "${inputFile}" | head -n "$((startLine-1))" > "${tmpfileH}"
+        cat "${inputFile}" | sed -n "$((startLine)), $((endLine-1))p" > "${tmpfileB}" 
+        tail -n +$((endLine)) "${inputFile}" > "${tmpfileF}"
+      fi
+    fi
+  fi
+
+  case $action in
+    'e')  "${selected_editor}" "${tmpfileB}"
+          wait
+          cat "${tmpfileH}" "${tmpfileB}" "${tmpfileF}" > "${inputFile}"
+          ;;
+    'd')  cat "${tmpfileH}" "${tmpfileF}" > "${inputFile}"
+          ;;
+    'v')  "${selected_viewer}" "${tmpfileB}"
+          ;;
+    *)    echo '不正な引数です。'
+  esac
+
+  (bash "${0}" "${inputFile}" 't')
+  exit 0
+
 fi
 
 if [[ "${action}" == 't' ]] ; then
@@ -210,93 +299,6 @@ if [[ "${action}" == 't' ]] ; then
     done
   }
 
-  echo ''
   echo '❓️引数なしでhelp参照'
-
   exit 0
-fi
-
-if [[ ${action} = 'i' ]] ; then
-  nlString='New Node'
-
-  readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
-  maxCnt="${#indexlist[@]}"
-
-  if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
-    echo "${indexNo}番目のノードは存在しません"
-    exit 5
-  fi
-
-  #バックアップ作成
-  cp -b --suffix=_$(date +%Y%m%d%h%m%s) "${inputFile}" "${inputFile}_bk"
-  
-  depth=$(echo "${indexlist[((indexNo-1))]}" | cut -d: -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
-
-  firstHalfEndLine=$(($(echo "${indexlist[$((indexNo))]}" | cut -d: -f 1)-1))
-  secondHalfStartLine=$(echo "${indexlist[$((indexNo))]}" | cut -d: -f 1)
-
-  (seq ${depth} | while read -r line; do printf '.'; done ) > "${tmpfileB}" 
-  echo ${nlString} >> "${tmpfileB}"
-  cat "${inputFile}" | head -n "$((firstHalfEndLine))" > "${tmpfileH}"
-  cat "${tmpfileB}"
-
-  if [[ $((${indexNo-1})) -eq ${maxCnt} ]] ;then
-    cat "${tmpfileH}" "${tmpfileB}" > "${inputFile}"
-
-  else
-    cat "${inputFile}" | tail -n +$((secondHalfStartLine))  > "${tmpfileF}"
-
-    cat "${tmpfileH}" "${tmpfileB}" "${tmpfileF}" > "${inputFile}"
-  fi
-
-exit 0
-
-fi
-
-if [[ ${action} =~ [eidv]$ ]] ; then
-
-  #バックアップ作成
-  cp -b --suffix=_$(date +%Y%m%d%h%m%s) "${inputFile}" "${inputFile}_bk"
-  
-  readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
-  maxCnt="${#indexlist[@]}"
-  startLine=$(echo "${indexlist[$((indexNo-1))]}" | cut -d: -f 1)
-  endLine=$(echo "${indexlist[((indexNo))]}" | cut -d: -f 1)
-
-  if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
-    echo "${indexNo}番目のノードは存在しません"
-    exit 5
-  else
-    if [[ ${indexNo} -eq 1 ]]; then
-      echo '' > "${tmpfileH}"
-      cat "${inputFile}" | sed -n "1, $((endLine-1))p" > "${tmpfileB}"
-      tail -n +$((endLine)) "${inputFile}" > "${tmpfileF}"
-    else
-      if [[ ${indexNo} -eq $maxCnt ]]; then
-        cat "${inputFile}" | head -n "$((startLine-1))" > "${tmpfileH}"
-        cat "${inputFile}" | tail -n +$((startLine))  > "${tmpfileB}" 
-        echo '' > "${tmpfileF}"
-      else
-        cat "${inputFile}" | head -n "$((startLine-1))" > "${tmpfileH}"
-        cat "${inputFile}" | sed -n "$((startLine)), $((endLine-1))p" > "${tmpfileB}" 
-        tail -n +$((endLine)) "${inputFile}" > "${tmpfileF}"
-      fi
-    fi
-  fi
-
-  case $action in
-    'e')  "${selected_editor}" "${tmpfileB}"
-          wait
-          cat "${tmpfileB}" >> "${tmpfileH}"
-          cat "${tmpfileF}" >> "${tmpfileH}"
-          mv  "${tmpfileH}" "${inputFile}"
-          ;;
-    'd')  cat "${tmpfileF}" >> "${tmpfileH}"
-          mv  "${tmpfileH}" "${inputFile}"
-          ;;
-    'v')  "${selected_viewer}" "${tmpfileB}"
-          ;;
-    *)    echo '不正な引数です。'
-  esac
-
 fi
