@@ -174,7 +174,7 @@ if [[ ${action:0:1} == 'm' ]] ; then
   esac
 fi
 
-if [[ ${action} == 't' ]] ; then
+if [[ "${action}" == 't' ]] ; then
   #ノードの検出
   readarray -t indexlist < <(grep -P '^\.+.+' ${inputFile})
   maxCnt="${#indexlist[@]}"
@@ -216,10 +216,47 @@ if [[ ${action} == 't' ]] ; then
   exit 0
 fi
 
+if [[ ${action} = 'i' ]] ; then
+  nlString='New Node'
+
+  readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
+  maxCnt="${#indexlist[@]}"
+
+  if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
+    echo "${indexNo}番目のノードは存在しません"
+    exit 5
+  fi
+
+  #バックアップ作成
+  cp -b --suffix=_$(date +%Y%m%d%h%m%s) "${inputFile}" "${inputFile}_bk"
+  
+  depth=$(echo "${indexlist[((indexNo-1))]}" | cut -d: -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+
+  firstHalfEndLine=$(($(echo "${indexlist[$((indexNo))]}" | cut -d: -f 1)-1))
+  secondHalfStartLine=$(echo "${indexlist[$((indexNo))]}" | cut -d: -f 1)
+
+  (seq ${depth} | while read -r line; do printf '.'; done ) > "${tmpfileB}" 
+  echo ${nlString} >> "${tmpfileB}"
+  cat "${inputFile}" | head -n "$((firstHalfEndLine))" > "${tmpfileH}"
+  cat "${tmpfileB}"
+
+  if [[ $((${indexNo-1})) -eq ${maxCnt} ]] ;then
+    cat "${tmpfileH}" "${tmpfileB}" > "${inputFile}"
+
+  else
+    cat "${inputFile}" | tail -n +$((secondHalfStartLine))  > "${tmpfileF}"
+
+    cat "${tmpfileH}" "${tmpfileB}" "${tmpfileF}" > "${inputFile}"
+  fi
+
+exit 0
+
+fi
+
 if [[ ${action} =~ [eidv]$ ]] ; then
 
   #バックアップ作成
-  cp -b --suffix=_$(date +%Y%m%d%hh%mm%ss) "${inputFile}" "${inputFile}_bk"
+  cp -b --suffix=_$(date +%Y%m%d%h%m%s) "${inputFile}" "${inputFile}_bk"
   
   readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
   maxCnt="${#indexlist[@]}"
