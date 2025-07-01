@@ -173,7 +173,7 @@ if [[ ${action:0:1} == 'm' ]] ; then
           ;;
   esac
 
-  (bash "${0}" "${inputFile}" 't')
+  bash "${0}" "${inputFile}" 't'
   exit 0
 
 fi
@@ -258,7 +258,7 @@ if [[ ${action} =~ [edv]$ ]] ; then
     *)    echo '不正な引数です。'
   esac
 
-  (bash "${0}" "${inputFile}" 't')
+  bash "${0}" "${inputFile}" 't'
   exit 0
 
 fi
