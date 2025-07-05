@@ -1,7 +1,8 @@
 
 .title
-タイトルだよ
+タイトルだよne3
 ああ
+aaaananika
 ..node1
 ので
 １
@@ -28,9 +29,9 @@
 .......depth7
 ........depth8
 .........depth9
-..........depth10
 ..........New Node15
 desu
 
+..........depth10
 ..........New Node
 

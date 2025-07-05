@@ -1,5 +1,23 @@
 ##!/bin/bash
 
+: "バックアップ関数" && {
+  function makeBackup {
+    local orgFile="${1}"
+    readonly MAX_BACKUP_COUNT=3
+
+    #find ./ -maxdepth 2 -type f | grep -P "$(basename ${orgFile})_bk_[1-${MAX_BACKUP_COUNT}]$"
+    
+    #3つ以上作る気がない
+    if [[ -f "./$(basename ${orgFile})_bk_2" ]] ; then 
+      cp "./$(basename ${orgFile})_bk_2" "./$(basename ${orgFile})_bk_3"
+    fi
+    if [[ -f "./$(basename ${orgFile})_bk_1" ]] ; then 
+      cp "./$(basename ${orgFile})_bk_1" "./$(basename ${orgFile})_bk_2"
+    fi
+    cp "./$(basename ${orgFile})" "./$(basename ${orgFile})_bk_1"
+  }
+}
+
 : "初期処理" && {
   clear
 
@@ -62,10 +80,15 @@
     exit 1
   fi
 
-  if [[ ! ${action} =~ [editmv]$ ]] ; then
-    echo '引数2:無効なアクションです'
-    read -s -n 1 c
-    bash "${0}"
+  if [[ ${action} =~ ^[0-9]+$ ]] && [[ ${#indexNo} = 0 ]] ; then
+    indexNo=${action}
+    action='e'
+  fi
+
+  if [[ ! ${action} =~ [editmv]$ ]] && [[ ! ${action} =~ [ml|mr|mu|md] ]] ; then
+      echo '引数2:無効なアクションです'
+      read -s -n 1 c
+      bash "${0}"
   fi
 
   if [[ ${action} =~ [edimv]$ ]] && [[ ${#indexNo} = 0 ]] ; then
@@ -82,14 +105,13 @@
     exit 0
   fi
 
-  if [[ ${action} =~ ^[0-9]+$ ]] && [[ ${#indexNo} = 0 ]] ; then
-    indexNo=${action}
-    action='e'
-  fi
-
   if [[ -f ${inputFile} ]] && [[ ${#action} = 0 ]] ; then
     bash "${0}" "${inputFile}" 't'
     exit 0
+  fi
+
+  if [[ ${action} =~ [edimv]$ ]] || [[ ${action} =~ [ml|mr|mu|md] ]] ; then
+    makeBackup "${inputFile}"
   fi
 
   : "一時ファイルにかかる処理" && {
@@ -172,10 +194,8 @@
                 (
                   cat "${inputFile}" | head -n "${endlinePreviousNode}" > "${tmpfileH}"
                   cat "${inputFile}" | sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}" 
-                  cat "${inputFile}" | sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}" 
-                  if [[ ${indexNo} -eq ${maxCnt} ]] ; then
-                    echo '' > "${tmpfileF}"
-                  else
+                  cat "${inputFile}" | sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}"
+                  if [[ ! ${startlineNextNode} = '' ]] ; then 
                     tail -n +"${startlineNextNode}" "${inputFile}" > "${tmpfileF}"
                   fi
                   wait
@@ -197,34 +217,26 @@
                 indexSelectNode="${indexlistN[   $(( ${indexNo} -1 )) ]}"
                 indexTargetNode="${indexlistN[   $(( ${indexNo}    )) ]}"
                 indexNextNode="${indexlistN[     $(( ${indexNo} +1 )) ]}"
+                endlinePreviousNode=$(( $( echo "${indexSelectNode}" | cut -d: -f 1 ) -1 ))
 
-                if [[ ${indexNo} -eq 1 ]] ; then
-                  endlinePreviousNode=''
-                else
-                  endlinePreviousNode=$(( $( echo "${indexSelectNode}" | cut -d: -f 1 ) -1 ))
-                fi
                 startlineSelectNode=$(( $( echo "${indexSelectNode}" | cut -d: -f 1 )    ))
                 endlineSelectNode=$((   $( echo "${indexTargetNode}" | cut -d: -f 1 ) -1 ))
                 startlineTargetNode=$(( $( echo "${indexTargetNode}" | cut -d: -f 1 )    ))
 
-
                 if [[ $((${indexNo}+1)) -eq ${maxCnt} ]] ; then
                   endlineTargetNode=$(cat "${inputFile}" | wc -l )
-                  startlineNextNode=''
                 else
                   endlineTargetNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 ) -1 ))
                   startlineNextNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 )    ))
                 fi
 
                 (
-                  if [[ ${indexNo} -eq 1 ]] ; then
-                    echo '' > "${tmpfileH}"
-                  else
-                    cat "${inputFile}" | head -n "${endlinePreviousNode}" > "${tmpfileH}"
-                  fi
+                  cat "${inputFile}" | head -n "${endlinePreviousNode}" > "${tmpfileH}"
                   cat "${inputFile}" | sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}" 
-                  cat "${inputFile}" | sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}" 
-                  tail -n +"${startlineNextNode}" "${inputFile}" > "${tmpfileF}"
+                  cat "${inputFile}" | sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}"
+                  if [[ ! ${startlineNextNode} = '' ]] ; then 
+                    tail -n +"${startlineNextNode}" "${inputFile}" > "${tmpfileF}"
+                  fi
                   wait
                 )
                 (
@@ -261,9 +273,6 @@
       echo "${indexNo}番目のノードは存在しません"
       exit 5
     fi
-
-    #バックアップ作成
-    cp -b --suffix=_$(date +%Y%m%d%h%m%s) "${inputFile}" "${inputFile}_bk"
     
     depth=$(echo "${indexlist[$((indexNo-1))]}" | cut -d: -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
 
@@ -291,9 +300,6 @@
 
 : "編集・削除・閲覧" && {
   if [[ ${action} =~ [edv]$ ]] ; then
-
-    #バックアップ作成
-    cp -b --suffix=_$(date +%Y%m%d%h%m) "${inputFile}" "${inputFile}_bk"
     
     readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
     maxCnt="${#indexlist[@]}"
@@ -305,7 +311,7 @@
       exit 5
     else
       if [[ ${indexNo} -eq 1 ]]; then
-        echo '' > "${tmpfileH}"
+        #echo '' > "${tmpfileH}"
         cat "${inputFile}" | sed -n "1, $((endLine-1))p" > "${tmpfileB}"
         tail -n +$((endLine)) "${inputFile}" > "${tmpfileF}"
       else
