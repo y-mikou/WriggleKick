@@ -1,17 +1,6 @@
 .title
 たいとるはなになに
 あ
-..danrak1
-aaaaa22
-aaaaaああ
-ああああ
-...dekigoto1-1
- bbbbb
-sssss
-ssss
-aaaa
-ssss
-aaaa
 ...dekigoto1-2
 jkndkskda
 njkikdssj
@@ -24,13 +13,15 @@ ndhjmskdm
 aaaaa
 aaaaa
 ああああ
+...dekigoto2-1
+njmkds
+ndhjmskdm
 ...3
 ....4
 .....5
 ......6
-.......7
-aaaa
-.......New Node
-dddd
-.......New Node
-.......New Node
+
+
+......6
+
+

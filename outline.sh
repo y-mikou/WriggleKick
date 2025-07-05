@@ -128,17 +128,39 @@ if [[ ${action:0:1} == 'm' ]] ; then
             action='t'
           fi
           ;;
-    'u')  startLineT=$(echo ${indexlistN[$((indexNo-2))]} | cut -d: -f 1)
-          endLineT=$(echo $((($(echo ${indexlistN[$((indexNo-1))]} | cut -d: -f 1))-1)))
+    'u')  #indexPreviousNode="${indexlistN[ $(( ${indexNo}-3)) ]}"
+          indexTargetNode="${indexlistN[ $(( ${indexNo} -1 )) ]}"
+          indexSelectNode="${indexlistN[ $(( ${indexNo}    )) ]}"
+          indexNextNode="${indexlistN[   $(( ${indexNo} +1 )) ]}"
 
-          startLineB=$(echo ${indexlistN[$((indexNo-1))]} | cut -d: -f 1)
-          endLineB=$(echo $((($(echo ${indexlistN[$((indexNo))]} | cut -d: -f 1))-1)))
+echo $indexTargetNode
+echo $indexSelectNode
+echo $indexNextNode
+
+          #startlineTargetNode=$(   echo ${indexTargetNode} | cut -d: -f 1 )
+          endlinePreviousNode=$(( $( echo "${indexTargetNode}" | cut -d: -f 1 ) -1 ))
+
+          startlineTargetNode=$(( $( echo "${indexTargetNode}" | cut -d: -f 1 )    ))
+          endlineTargetNode=$((   $( echo "${indexSelectNode}" | cut -d: -f 1 ) -1 ))
+
+          startlineSelectNode=$(( $( echo "${indexSelectNode}" | cut -d: -f 1 )    ))
+          endlineSelectNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 ) -1 ))
+
+          startlineNextNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 )    ))
+
+echo $endlinePreviousNode
+echo "$startlineTargetNode-$endlineTargetNode"
+echo "$startlineSelectNode-$endlineSelectNode"
+echo $startlineNextNode
+
+exit 1
+          
           (
-          cat "${inputFile}" | head -n "$((startLineT-1))" > "${tmpfileH}"
-          cat "${inputFile}" | sed -n "${startLineB}, ${endLineB}p" > "${tmpfileB}" 
-          cat "${inputFile}" | sed -n "${startLineT}, ${endLineT}p" > "${tmpfileT}" 
-          tail -n +$((endLineB+1)) "${inputFile}" > "${tmpfileF}"
-          wait
+            cat "${inputFile}" | head -n "${endlinePreviousNode}" > "${tmpfileH}"
+            cat "${inputFile}" | sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}" 
+            cat "${inputFile}" | sed -sn "${startlineSelectNode},${endlineSelctNode}p" > "${tmpfileB}" 
+            tail -n +"${startlineNextNode}" "${inputFile}" > "${tmpfileF}"
+            wait
           )
           (
             cat "${tmpfileH}" "${tmpfileB}" > "${tmpfile1}"
@@ -154,11 +176,11 @@ if [[ ${action:0:1} == 'm' ]] ; then
           startLineB=$(echo ${indexlistN[$((indexNo-1))]} | cut -d: -f 1)
           endLineB=$(echo $((($(echo ${indexlistN[$((indexNo))]} | cut -d: -f 1))-1)))
           (
-          cat "${inputFile}" | head -n "$((startLineB-1))" > "${tmpfileH}"
-          cat "${inputFile}" | sed -n "${startLineB}, ${endLineB}p" > "${tmpfileB}" 
-          cat "${inputFile}" | sed -n "${startLineT}, ${endLineT}p" > "${tmpfileT}" 
-          tail -n +$((endLineT+1)) "${inputFile}" > "${tmpfileF}"
-          wait
+            cat "${inputFile}" | head -n "$((startLineB-1))" > "${tmpfileH}"
+            cat "${inputFile}" | sed -n "${startLineB},${endLineB}p" > "${tmpfileB}" 
+            cat "${inputFile}" | sed -n "${startLineT},${endLineT}p" > "${tmpfileT}" 
+            tail -n +$((endLineT+1)) "${inputFile}" > "${tmpfileF}"
+            wait
           )
           (
             cat "${tmpfileH}" "${tmpfileT}" > "${tmpfile1}"
