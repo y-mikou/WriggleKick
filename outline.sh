@@ -58,12 +58,14 @@ fi
 
 if [[ ${action} =~ [edimv]$ ]] && [[ ${#indexNo} = 0 ]] ; then
   echo '引数3:対象ノード番号を指定して下さい'
-  action='t'
+  bash "${0}" "${inputFile}" 't'
+  exit 0
 fi
 
 if [[ ${action} =~ [ml|mr|mu|md] ]] && [[ ${#indexNo} = 0 ]] ; then
   echo '引数3:対象ノード番号を指定して下さい'
-  action='t'
+  bash "${0}" "${inputFile}" 't'
+  exit 0
 fi
 
 if [[ ${action} =~ ^[0-9]+$ ]] && [[ ${#indexNo} = 0 ]] ; then
@@ -72,7 +74,8 @@ if [[ ${action} =~ ^[0-9]+$ ]] && [[ ${#indexNo} = 0 ]] ; then
 fi
 
 if [[ -f ${inputFile} ]] && [[ ${#action} = 0 ]] ; then
-  action='t'
+  bash "${0}" "${inputFile}" 't'
+  exit 0
 fi
 
 # 一時ファイルを作
@@ -102,98 +105,124 @@ if [[ ${action:0:1} == 'm' ]] ; then
   maxCnt="${#indexlistN[@]}"
   if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
     echo "${indexNo}番目のノードは存在しません"
-    exit 5
+    read -s -n 1 c
+  else
+    tgtLine="$(echo ${indexlistN[((indexNo-1))]} | cut -d: -f 1)"
+    replaceFrom="$(echo ${indexlistN[((indexNo-1))]} | cut -d: -f 2)"
+    depth=$(echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l)
+
+    direction="${action:1:1}"
+
+    case "${direction}" in
+      'l')  if [[ $depth -le 1 ]] ; then
+              echo 'それ以上浅くできません'
+              read -s -n 1 c
+            else
+              sed -i -e "$tgtLine s/^\.\./\./g" ${inputFile}
+              bash "${0}" "${inputFile}" 't'
+              exit 0
+            fi
+            ;;
+      'r')  if [[ $depth -ge 10 ]] ; then
+              echo 'それ以上深くできません'
+              read -s -n 1 c
+            else
+              sed -i -e "$tgtLine s/^/\./g" ${inputFile}
+              bash "${0}" "${inputFile}" 't'
+              exit 0
+            fi
+            ;;
+      'u')  if [[ ${indexNo} -ne 1 ]] ; then
+              indexTargetNode="${indexlistN[ $(( ${indexNo} -2 )) ]}"
+              indexSelectNode="${indexlistN[ $(( ${indexNo} -1 )) ]}"
+              indexNextNode="${indexlistN[   $(( ${indexNo}    )) ]}"
+
+              endlinePreviousNode=$(( $( echo "${indexTargetNode}" | cut -d: -f 1 ) -1 ))
+              startlineTargetNode=$(( $( echo "${indexTargetNode}" | cut -d: -f 1 )    ))
+              endlineTargetNode=$((   $( echo "${indexSelectNode}" | cut -d: -f 1 ) -1 ))
+              startlineSelectNode=$(( $( echo "${indexSelectNode}" | cut -d: -f 1 )    ))
+              if [[ ${indexNo} -eq ${maxCnt} ]] ; then
+                endlineSelectNode=$(cat "${inputFile}" | wc -l )
+                startlineNextNode=''
+              else
+                endlineSelectNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 ) -1 ))
+                startlineNextNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 )    ))
+              fi
+              
+              (
+                cat "${inputFile}" | head -n "${endlinePreviousNode}" > "${tmpfileH}"
+                cat "${inputFile}" | sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}" 
+                cat "${inputFile}" | sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}" 
+                if [[ ${indexNo} -eq ${maxCnt} ]] ; then
+                  echo '' > "${tmpfileF}"
+                else
+                  tail -n +"${startlineNextNode}" "${inputFile}" > "${tmpfileF}"
+                fi
+                wait
+              )
+              (
+                cat "${tmpfileH}" "${tmpfileB}" > "${tmpfile1}"
+                cat "${tmpfileT}" "${tmpfileF}" > "${tmpfile2}"
+                wait
+              )
+              cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
+            else
+              echo '1番目のノードは上に移動できません。'
+              read -s -n 1 c
+            fi
+            ;;
+      'd')  if [[ ${indexNo} -ne ${maxCnt} ]] ; then
+
+              indexPreviousNode="${indexlistN[ $(( ${indexNo} -2 )) ]}"
+              indexSelectNode="${indexlistN[   $(( ${indexNo} -1 )) ]}"
+              indexTargetNode="${indexlistN[   $(( ${indexNo}    )) ]}"
+              indexNextNode="${indexlistN[     $(( ${indexNo} +1 )) ]}"
+
+              if [[ ${indexNo} -eq 1 ]] ; then
+                endlinePreviousNode=''
+              else
+                endlinePreviousNode=$(( $( echo "${indexSelectNode}" | cut -d: -f 1 ) -1 ))
+              fi
+              startlineSelectNode=$(( $( echo "${indexSelectNode}" | cut -d: -f 1 )    ))
+              endlineSelectNode=$((   $( echo "${indexTargetNode}" | cut -d: -f 1 ) -1 ))
+              startlineTargetNode=$(( $( echo "${indexTargetNode}" | cut -d: -f 1 )    ))
+
+
+              if [[ $((${indexNo}+1)) -eq ${maxCnt} ]] ; then
+                endlineTargetNode=$(cat "${inputFile}" | wc -l )
+                startlineNextNode=''
+              else
+                endlineTargetNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 ) -1 ))
+                startlineNextNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 )    ))
+              fi
+
+              (
+                if [[ ${indexNo} -eq 1 ]] ; then
+                  echo '' > "${tmpfileH}"
+                else
+                  cat "${inputFile}" | head -n "${endlinePreviousNode}" > "${tmpfileH}"
+                fi
+                cat "${inputFile}" | sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}" 
+                cat "${inputFile}" | sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}" 
+                tail -n +"${startlineNextNode}" "${inputFile}" > "${tmpfileF}"
+                wait
+              )
+              (
+                cat "${tmpfileH}" "${tmpfileT}" > "${tmpfile1}"
+                cat "${tmpfileB}" "${tmpfileF}" > "${tmpfile2}"
+                wait
+              )
+              cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
+            else
+              echo '最後のノードは下に移動できません。'
+              read -s -n 1 c
+            fi
+            ;;
+      *)    echo 'err'
+            exit 1
+            ;;
+    esac
   fi
-    
-  tgtLine="$(echo ${indexlistN[((indexNo-1))]} | cut -d: -f 1)"
-  replaceFrom="$(echo ${indexlistN[((indexNo-1))]} | cut -d: -f 2)"
-  depth=$(echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l)
-
-  direction="${action:1:1}"
-
-  case "${direction}" in
-    'l')  if [[ $depth -le 1 ]] ; then
-            echo 'それ以上浅くできません'
-            exit 1
-          else
-            sed -i -e "$tgtLine s/^\.\./\./g" ${inputFile}
-            action='t'
-          fi
-          ;;
-    'r')  if [[ $depth -ge 10 ]] ; then
-            echo 'それ以上深くできません'
-            exit 1
-          else
-            sed -i -e "$tgtLine s/^/\./g" ${inputFile}
-            action='t'
-          fi
-          ;;
-    'u')  #indexPreviousNode="${indexlistN[ $(( ${indexNo}-3)) ]}"
-          indexTargetNode="${indexlistN[ $(( ${indexNo} -1 )) ]}"
-          indexSelectNode="${indexlistN[ $(( ${indexNo}    )) ]}"
-          indexNextNode="${indexlistN[   $(( ${indexNo} +1 )) ]}"
-
-echo $indexTargetNode
-echo $indexSelectNode
-echo $indexNextNode
-
-          #startlineTargetNode=$(   echo ${indexTargetNode} | cut -d: -f 1 )
-          endlinePreviousNode=$(( $( echo "${indexTargetNode}" | cut -d: -f 1 ) -1 ))
-
-          startlineTargetNode=$(( $( echo "${indexTargetNode}" | cut -d: -f 1 )    ))
-          endlineTargetNode=$((   $( echo "${indexSelectNode}" | cut -d: -f 1 ) -1 ))
-
-          startlineSelectNode=$(( $( echo "${indexSelectNode}" | cut -d: -f 1 )    ))
-          endlineSelectNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 ) -1 ))
-
-          startlineNextNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 )    ))
-
-echo $endlinePreviousNode
-echo "$startlineTargetNode-$endlineTargetNode"
-echo "$startlineSelectNode-$endlineSelectNode"
-echo $startlineNextNode
-
-exit 1
-          
-          (
-            cat "${inputFile}" | head -n "${endlinePreviousNode}" > "${tmpfileH}"
-            cat "${inputFile}" | sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}" 
-            cat "${inputFile}" | sed -sn "${startlineSelectNode},${endlineSelctNode}p" > "${tmpfileB}" 
-            tail -n +"${startlineNextNode}" "${inputFile}" > "${tmpfileF}"
-            wait
-          )
-          (
-            cat "${tmpfileH}" "${tmpfileB}" > "${tmpfile1}"
-            cat "${tmpfileT}" "${tmpfileF}" > "${tmpfile2}"
-            wait
-          )
-          cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
-          exit 0
-          ;;
-    'd')  startLineT=$(echo ${indexlistN[$((indexNo))]} | cut -d: -f 1)
-          endLineT=$(echo $((($(echo ${indexlistN[$((indexNo+1))]} | cut -d: -f 1))-1)))
-
-          startLineB=$(echo ${indexlistN[$((indexNo-1))]} | cut -d: -f 1)
-          endLineB=$(echo $((($(echo ${indexlistN[$((indexNo))]} | cut -d: -f 1))-1)))
-          (
-            cat "${inputFile}" | head -n "$((startLineB-1))" > "${tmpfileH}"
-            cat "${inputFile}" | sed -n "${startLineB},${endLineB}p" > "${tmpfileB}" 
-            cat "${inputFile}" | sed -n "${startLineT},${endLineT}p" > "${tmpfileT}" 
-            tail -n +$((endLineT+1)) "${inputFile}" > "${tmpfileF}"
-            wait
-          )
-          (
-            cat "${tmpfileH}" "${tmpfileT}" > "${tmpfile1}"
-            cat "${tmpfileB}" "${tmpfileF}" > "${tmpfile2}"
-            wait
-          )
-          cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
-          exit 0
-          ;;
-    *)    echo 'err'
-          exit 1
-          ;;
-  esac
 
   bash "${0}" "${inputFile}" 't'
   exit 0
@@ -271,6 +300,7 @@ if [[ ${action} =~ [edv]$ ]] ; then
   case $action in
     'e')  "${selected_editor}" "${tmpfileB}"
           wait
+          sed -i -e '$a\' "${tmpfileB}" #編集の結果末尾に改行がない場合の対応
           cat "${tmpfileH}" "${tmpfileB}" "${tmpfileF}" > "${inputFile}"
           ;;
     'd')  cat "${tmpfileH}" "${tmpfileF}" > "${inputFile}"
