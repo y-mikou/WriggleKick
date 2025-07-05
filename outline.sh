@@ -140,7 +140,6 @@
 }
 
 : "移動" &&  {
-
   if [[ ${action:0:1} == 'm' ]] ; then
     #ノードの検出
     readarray -t indexlistN < <(grep -nP '^\.+.+' ${inputFile})
