@@ -60,18 +60,23 @@
     echo '>help'
     echo '　引数1:対象File'
     echo '　引数2:動作指定'
-    echo '　　　　　t....ツリービュー(省略可)'
-    echo '　　　　　v....対象ノードの閲覧'
-    echo '　　　　　e....対象ノードの編集'
-    echo '　　　　　d....対象ノードの削除'
-    echo '　　　　　i....新規ノード挿入'
-    echo '　　　　　mu...対象ノードを上へ移動'
-    echo '　　　　　md...対象ノードを下へ移動'
-    echo '　　　　　ml...対象ノードを左へ移動(浅くする)'
-    echo '　　　　　mr...対象ノードを右へ移動(深くする)'
+    echo '　　　　　t.....ツリービュー(省略可)'
+    echo '　　　　　tl....行番号付きツリービュー'
+    echo '　　　　　v.....対象ノードの閲覧'
+    echo '　　　　　e.....対象ノードの編集'
+    echo '　　　　　d.....対象ノードの削除'
+    echo '　　　　　i.....新規ノード挿入'
+    echo '　　　　　mu....対象ノードを上へ移動'
+    echo '　　　　　md....対象ノードを下へ移動'
+    echo '　　　　　ml....対象ノードを左へ移動(浅くする)'
+    echo '　　　　　mr....対象ノードを右へ移動(深くする)'
+    echo '　　　　　gmu...自分の配下ノードを引き連れて上へ移動'
+    echo '　　　　　gmd...自分の配下ノードを引き連れて下へ移動'
+    echo '　　　　　gml...自分の配下ノードを引き連れて左へ移動(浅くする)'
+    echo '　　　　　gmr...自分の配下ノードを引き連れて右へ移動(深くする)'
     echo '　　　　　0～99...対象ノードを編集(eと引数3を省略)'
     echo '　引数3:動作対象ノード番号'
-    exit 2
+    exit 0
   fi
 
   if [[ ! -f ${inputFile} ]] ; then
@@ -80,29 +85,36 @@
     exit 1
   fi
 
+  #(存在する)ファイルのみを指定した場合、ツリービューに読み替え
+  if [[ ${#action} = 0 ]] ; then
+    bash "${0}" "${inputFile}" 't'
+    exit 0
+  fi
+
+  #動作指定を省略して段落を指定した場合、編集に読み替え
   if [[ ${action} =~ ^[0-9]+$ ]] && [[ ${#indexNo} = 0 ]] ; then
-    indexNo=${action}
-    action='e'
+    bash "${0}" "${inputFile}" 'e' "${action}"
+    exit 0
   fi
 
-  if [[ ! ${action} =~ [editmv]$ ]] && [[ ! ${action} =~ [ml|mr|mu|md] ]] ; then
-      echo '引数2:無効なアクションです'
+  allowActionList=('e' 'd' 'i' 't' 'tl' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+  printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
+  if [[ ${?} -ne 0 ]] ; then
+    echo '引数2:無効なアクションです'
+    read -s -n 1 c
+    bash "${0}"
+    exit 0
+  fi
+
+  needNodeActionList=('e' 'd' 'i' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+  printf '%s\n' "${needNodeActionList[@]}" | grep -qx "${action}"
+  if [[ ${?} -eq 0 ]] ; then
+    if [[ ${#indexNo} = 0 ]] ; then
+      echo '引数3:対象ノード番号を指定して下さい'
       read -s -n 1 c
-      bash "${0}"
-  fi
-
-  if [[ ${action} =~ [edimv]$ ]] && [[ ${#indexNo} = 0 ]] ; then
-    echo '引数3:対象ノード番号を指定して下さい'
-    read -s -n 1 c
-    bash "${0}" "${inputFile}" 't'
-    exit 0
-  fi
-
-  if [[ ${action} =~ [ml|mr|mu|md] ]] && [[ ${#indexNo} = 0 ]] ; then
-    echo '引数3:対象ノード番号を指定して下さい'
-    read -s -n 1 c
-    bash "${0}" "${inputFile}" 't'
-    exit 0
+      bash "${0}" "${inputFile}" 't'
+      exit 0
+    fi
   fi
 
   if [[ -f ${inputFile} ]] && [[ ${#action} = 0 ]] ; then
@@ -110,7 +122,9 @@
     exit 0
   fi
 
-  if [[ ${action} =~ [edimv]$ ]] || [[ ${action} =~ [ml|mr|mu|md] ]] ; then
+  makeBackupActionList=('e' 'd' 'i' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+  printf '%s\n' "${makeBackupActionList[@]}" | grep -qx "${action}"
+  if [[ ${?} -eq 0 ]] ; then
     makeBackup "${inputFile}"
   fi
 
@@ -264,7 +278,7 @@
 : "グループ移動" &&  {
   if [[ ${action:0:2} == 'gm' ]] ; then
 
-    #ノードの検出
+    #ノードの検出   
     readarray -t indexlistN < <(grep -nP '^\.+.+' ${inputFile})
     maxCnt="${#indexlistN[@]}"
     if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
@@ -277,38 +291,52 @@
       replaceFrom="$(echo ${indexlistN[((indexNo-1))]} | cut -d: -f 2)"
       depth=$(echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l)
 
-      for i in $(seq $((${indexNo}-1)) $((${maxCnt}-1))) ;
+      for i in $(seq $((${indexNo})) $((${maxCnt}))) ;
       do
         depthCheck=$(echo "${indexlistN[${i}]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
-        echo ${depthCheck}-${depth}
-        if [[ ${depthCheck} -lt ${depth} ]] ; then
-          endlineSelectGroup=$(( $(echo "${indexlistN[${i}]}" | cut -d':' -f 1) - 1 ))
+        if [[ ${depthCheck} -le ${depth} ]] ; then
+          endlineSelectGroup=$(($(echo "${indexlistN[${i}]}" | cut -d':' -f 1) -1 ))
+          break
         fi
-
-#          tgtLine=$(echo "${indexlistN[${i}]}" | cut -d':' -f 1)
-#
-#          case "${action:2:1}" in
-#            #グループ単位の深さ移動
-#            'l')  sed -i -e "$tgtLine s/^\.\./\./g" ${inputFile}
-#                  ;;
-#            'r')  sed -i -e "$tgtLine s/^\./\.\./g" ${inputFile}
-#                  ;;
-#            'u')  echo "選択したグループは${startlineSelectGroup}から${endlineSelectGroup}行目です。"
-#                  ;;
-#            'd')  echo '未実装です'
-#                  ;;
-#            *)    echo 'err'
-#                  read -s -n 1 c
-#                  break
-#                  ;;
-#          esac
       done
-      echo "対象は${startlineSelectGroup}-${endlineSelectGroup}"
+      if [[ ${endlineSelectGroup} -le 0 ]] ; then
+        endlineSelectGroup=$(cat "${inputFile}" | wc -l)
+      fi
 
-                  read -s -n 1 c
+      #tgtLine=$(echo "${indexlistN[${i}]}" | cut -d':' -f 1)
+
+      case "${action:2:1}" in
+        #グループ単位の深さ移動
+        'l')  for i in $(seq ${startlineSelectGroup} ${endlineSelectGroup}) ;
+              do
+                targetLine=$(sed -n ${i}P ${inputFile})
+                headChar=$(echo ${targetLine:0:1})
+                if [[ ${headChar} == '.' ]] ; then 
+                  sed -i -e "${i} s/^\.\./\./g" ${inputFile}
+                fi
+              done
+              ;;
+        'r')  for i in $(seq ${startlineSelectGroup} ${endlineSelectGroup}) ;
+              do
+                targetLine=$(sed -n ${i}P ${inputFile})
+                headChar=$(echo ${targetLine:0:1})
+                if [[ ${headChar} == '.' ]] ; then 
+                  sed -i -e "${i} s/^\./\.\./g" ${inputFile}
+                fi
+              done
+              ;;
+        'u')  echo "未実装です"
+              ;;
+        'd')  echo '未実装です'
+              ;;
+        *)    echo 'err'
+              read -s -n 1 c
+              break
+              ;;
+      esac
+
       bash "${0}" "${inputFile}" 't'
       exit 0
-
     fi
   fi
 }
@@ -402,18 +430,30 @@
 }
 
 : "ツリー表示" && {
-  if [[ "${action}" == 't' ]] ; then
+  if [[ "${action}" == 't' ]] || [[ "${action}" == 'tl' ]] ; then
     #ノードの検出
-    readarray -t indexlist < <(grep -P '^\.+.+' ${inputFile})
+    readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
     maxCnt="${#indexlist[@]}"
+
+    if [[ "${action}" == 'tl' ]] ; then 
+      echo 'ノード  行番号    アウトライン'
+      echo '------+--------+------------'
+    else
+      echo 'ノード  アウトライン'
+      echo '------+------------'
+    fi
 
     seq $((maxCnt)) | {
       while read -r cnt ; do
         arrycnt=$((cnt-1))
+        line=$(echo "${indexlist[arrycnt]}" | cut -d: -f 1)
         depth=$(echo "${indexlist[arrycnt]}" | cut -d: -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
 
-        printf "%03d " $cnt
-        seq ${depth} | while read -r line; do printf '　'; done
+        printf "%06d" "${cnt}"
+        if [[ "${action}" == 'tl' ]] ; then 
+          printf " %08d" "${line}"
+        fi
+        seq ${depth} | while read -r line; do printf '  '; done
         case "${depth}" in
           '1') printf '📚️ '
                 ;;
@@ -430,10 +470,10 @@
           *) printf '└🗨️ '
               ;;
         esac 
-
         #表示時にはノードを示す'.'を消す
-        dots=$(echo "${indexlist[arrycnt]}" | cut -d: -f 2 | grep -oP '^\.+')
-        title="${indexlist[arrycnt]#$dots}"
+        dots=$(echo "${indexlist[arrycnt]}" | cut -d: -f 2 | grep -oP '^\.+' )
+        title=$(echo "${indexlist[arrycnt]}" | cut -d: -f 2)
+        title="${title#$dots}"
         echo "${title}"
       done
     }
