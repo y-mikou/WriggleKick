@@ -261,6 +261,52 @@
   fi
 }
 
+: "グループ移動" &&  {
+  if [[ ${action:0:2} == 'gm' ]] ; then
+
+    #ノードの検出
+    readarray -t indexlistN < <(grep -nP '^\.+.+' ${inputFile})
+    maxCnt="${#indexlistN[@]}"
+    if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
+      echo "${indexNo}番目のノードは存在しません"
+      read -s -n 1 c
+    else
+
+      indexSelectNode="${indexlistN[ $(( ${indexNo} -1 )) ]}"
+      startlineTargetGroup="$(echo ${indexSelectNode} | cut -d: -f 1)"
+      replaceFrom="$(echo ${indexlistN[((indexNo-1))]} | cut -d: -f 2)"
+      depth=$(echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l)
+
+      for i in $(seq $((${indexNo}-1)) $((${maxCnt}-1))) ;
+      do
+        depthCheck=$(echo "${indexlistN[${i}]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+        if [[ ${depthCheck} -lt ${depth} ]] ; then
+          #endlineTargetGroup=$(( $(echo "${indexlistN[${i}]}" | cut -d':' -f 1) - 1 ))
+          break
+        else
+          tgtLine=$(echo "${indexlistN[${i}]}" | cut -d':' -f 1)
+
+          case "${action:2:1}" in
+            #グループ単位の深さ移動
+            'l')  sed -i -e "$tgtLine s/^\.\./\./g" ${inputFile}
+                  ;;
+            'r')  sed -i -e "$tgtLine s/^\./\.\./g" ${inputFile}
+                  ;;
+            *)    echo 'err'
+                  read -s -n 1 c
+                  break
+                  ;;
+          esac
+        fi
+      done
+
+      bash "${0}" "${inputFile}" 't'
+      exit 0
+
+    fi
+  fi
+}
+
 : "挿入" && {
   if [[ ${action} = 'i' ]] ; then
     nlString='New Node'
@@ -270,7 +316,9 @@
 
     if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
       echo "${indexNo}番目のノードは存在しません"
-      exit 5
+      read -s -n 1 c
+      bash "${0}" "${inputFile}" 't'
+      exit 0
     fi
     
     depth=$(echo "${indexlist[$((indexNo-1))]}" | cut -d: -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
@@ -307,7 +355,9 @@
 
     if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
       echo "${indexNo}番目のノードは存在しません"
-      exit 5
+      read -s -n 1 c
+      bash "${0}" "${inputFile}" 't'
+      exit 0
     else
       if [[ ${indexNo} -eq 1 ]]; then
         #echo '' > "${tmpfileH}"
