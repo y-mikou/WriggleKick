@@ -286,8 +286,7 @@
       read -s -n 1 c
     else
 
-      indexSelectNode="${indexlistN[ $(( ${indexNo} -1 )) ]}"
-      startlineSelectGroup="$(echo ${indexSelectNode} | cut -d: -f 1)"
+      startnodeSelectGroup="$(( ${indexNo}-1 ))"
       replaceFrom="$(echo ${indexlistN[((indexNo-1))]} | cut -d: -f 2)"
       depth=$(echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l)
 
@@ -295,34 +294,27 @@
       do
         depthCheck=$(echo "${indexlistN[${i}]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
         if [[ ${depthCheck} -le ${depth} ]] ; then
-          endlineSelectGroup=$(($(echo "${indexlistN[${i}]}" | cut -d':' -f 1) -1 ))
+          endnodeSelectGroup=$((${i}-1))
           break
         fi
       done
-      if [[ ${endlineSelectGroup} -le 0 ]] ; then
-        endlineSelectGroup=$(cat "${inputFile}" | wc -l)
-      fi
 
-      #tgtLine=$(echo "${indexlistN[${i}]}" | cut -d':' -f 1)
+      if [[ ${endnodeSelectGroup} -le 0 ]] ; then
+        endnodeSelectGroup="${maxCnt}"
+      fi
 
       case "${action:2:1}" in
         #グループ単位の深さ移動
-        'l')  for i in $(seq ${startlineSelectGroup} ${endlineSelectGroup}) ;
+        'l')  for i in $(seq ${startnodeSelectGroup} ${endnodeSelectGroup}) ;
               do
-                targetLine=$(sed -n ${i}P ${inputFile})
-                headChar=$(echo ${targetLine:0:1})
-                if [[ ${headChar} == '.' ]] ; then 
-                  sed -i -e "${i} s/^\.\./\./g" ${inputFile}
-                fi
+                tgtLine=$(echo "${indexlistN[$i]}" | cut -d: -f 1)
+                sed -i -e "${tgtLine} s/^\.\./\./g" ${inputFile}
               done
               ;;
-        'r')  for i in $(seq ${startlineSelectGroup} ${endlineSelectGroup}) ;
+        'r')  for i in $(seq ${startnodeSelectGroup} ${endnodeSelectGroup}) ;
               do
-                targetLine=$(sed -n ${i}P ${inputFile})
-                headChar=$(echo ${targetLine:0:1})
-                if [[ ${headChar} == '.' ]] ; then 
-                  sed -i -e "${i} s/^\./\.\./g" ${inputFile}
-                fi
+                tgtLine=$(echo "${indexlistN[$i]}" | cut -d: -f 1)
+                sed -i -e "${tgtLine} s/^\./\.\./g" ${inputFile}
               done
               ;;
         'u')  echo "未実装です"
