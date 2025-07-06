@@ -273,33 +273,39 @@
     else
 
       indexSelectNode="${indexlistN[ $(( ${indexNo} -1 )) ]}"
-      startlineTargetGroup="$(echo ${indexSelectNode} | cut -d: -f 1)"
+      startlineSelectGroup="$(echo ${indexSelectNode} | cut -d: -f 1)"
       replaceFrom="$(echo ${indexlistN[((indexNo-1))]} | cut -d: -f 2)"
       depth=$(echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l)
 
       for i in $(seq $((${indexNo}-1)) $((${maxCnt}-1))) ;
       do
         depthCheck=$(echo "${indexlistN[${i}]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+        echo ${depthCheck}-${depth}
         if [[ ${depthCheck} -lt ${depth} ]] ; then
-          #endlineTargetGroup=$(( $(echo "${indexlistN[${i}]}" | cut -d':' -f 1) - 1 ))
-          break
-        else
-          tgtLine=$(echo "${indexlistN[${i}]}" | cut -d':' -f 1)
-
-          case "${action:2:1}" in
-            #グループ単位の深さ移動
-            'l')  sed -i -e "$tgtLine s/^\.\./\./g" ${inputFile}
-                  ;;
-            'r')  sed -i -e "$tgtLine s/^\./\.\./g" ${inputFile}
-                  ;;
-            *)    echo 'err'
-                  read -s -n 1 c
-                  break
-                  ;;
-          esac
+          endlineSelectGroup=$(( $(echo "${indexlistN[${i}]}" | cut -d':' -f 1) - 1 ))
         fi
-      done
 
+#          tgtLine=$(echo "${indexlistN[${i}]}" | cut -d':' -f 1)
+#
+#          case "${action:2:1}" in
+#            #グループ単位の深さ移動
+#            'l')  sed -i -e "$tgtLine s/^\.\./\./g" ${inputFile}
+#                  ;;
+#            'r')  sed -i -e "$tgtLine s/^\./\.\./g" ${inputFile}
+#                  ;;
+#            'u')  echo "選択したグループは${startlineSelectGroup}から${endlineSelectGroup}行目です。"
+#                  ;;
+#            'd')  echo '未実装です'
+#                  ;;
+#            *)    echo 'err'
+#                  read -s -n 1 c
+#                  break
+#                  ;;
+#          esac
+      done
+      echo "対象は${startlineSelectGroup}-${endlineSelectGroup}"
+
+                  read -s -n 1 c
       bash "${0}" "${inputFile}" 't'
       exit 0
 
