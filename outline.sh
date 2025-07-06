@@ -205,9 +205,9 @@
                 fi
                 
                 (
-                  cat "${inputFile}" | head -n "${endlinePreviousNode}" > "${tmpfileH}"
-                  cat "${inputFile}" | sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}" 
-                  cat "${inputFile}" | sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}"
+                  cat "${inputFile}" | { head -n "${endlinePreviousNode}" > "${tmpfileH}"; cat >/dev/null;}
+                  cat "${inputFile}" | { sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}"; cat >/dev/null;}
+                  cat "${inputFile}" | { sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}"; cat >/dev/null;}
                   if [[ ! ${startlineNextNode} = '' ]] ; then 
                     tail -n +"${startlineNextNode}" "${inputFile}" > "${tmpfileF}"
                   fi
@@ -244,9 +244,9 @@
                 fi
 
                 (
-                  cat "${inputFile}" | head -n "${endlinePreviousNode}" > "${tmpfileH}"
-                  cat "${inputFile}" | sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}" 
-                  cat "${inputFile}" | sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}"
+                  cat "${inputFile}" | { head -n "${endlinePreviousNode}" > "${tmpfileH}"; cat >/dev/null;}
+                  cat "${inputFile}" | { sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}"; cat >/dev/null;} 
+                  cat "${inputFile}" | { sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}"; cat >/dev/null;}
                   if [[ ! ${startlineNextNode} = '' ]] ; then 
                     tail -n +"${startlineNextNode}" "${inputFile}" > "${tmpfileF}"
                   fi
@@ -362,14 +362,14 @@
 
     dots=$(seq ${depth} | while read -r line; do printf '.'; done)
     echo "${dots}${nlString}" > "${tmpfileB}"
-    cat "${inputFile}" | head -n "$((firstHalfEndLine))" > "${tmpfileH}"
+    cat "${inputFile}" | { head -n "$((firstHalfEndLine))" > "${tmpfileH}"; cat >/dev/null;}
 
     if [[ ${indexNo} -eq ${maxCnt} ]] ;then
       awk 1 "${inputFile}" "${tmpfileB}" > "${tmpfile1}"
       cat "${tmpfile1}" > "${inputFile}"
 
     else
-      cat "${inputFile}" | tail -n +$((secondHalfStartLine))  > "${tmpfileF}"
+      cat "${inputFile}" | { tail -n +$((secondHalfStartLine))  > "${tmpfileF}"; cat >/dev/null;}
       cat "${tmpfileH}" "${tmpfileB}" "${tmpfileF}" > "${inputFile}"
     fi
 
@@ -394,17 +394,16 @@
       exit 0
     else
       if [[ ${indexNo} -eq 1 ]]; then
-        #echo '' > "${tmpfileH}"
-        cat "${inputFile}" | sed -n "1, $((endLine-1))p" > "${tmpfileB}"
+        cat "${inputFile}" | { sed -n "1, $((endLine-1))p" > "${tmpfileB}"; cat >/dev/null;}
         tail -n +$((endLine)) "${inputFile}" > "${tmpfileF}"
       else
         if [[ ${indexNo} -eq $maxCnt ]]; then
-          cat "${inputFile}" | head -n "$((startLine-1))" > "${tmpfileH}"
-          cat "${inputFile}" | tail -n +$((startLine))  > "${tmpfileB}" 
+          cat "${inputFile}" | { head -n "$((startLine-1))" > "${tmpfileH}"; cat >/dev/null;}
+          cat "${inputFile}" | { tail -n +$((startLine))  > "${tmpfileB}"; cat >/dev/null;}
           echo '' > "${tmpfileF}"
         else
-          cat "${inputFile}" | head -n "$((startLine-1))" > "${tmpfileH}"
-          cat "${inputFile}" | sed -n "$((startLine)), $((endLine-1))p" > "${tmpfileB}" 
+          cat "${inputFile}" | { head -n "$((startLine-1))" > "${tmpfileH}"; cat >/dev/null;}
+          cat "${inputFile}" | { sed -n "$((startLine)), $((endLine-1))p" > "${tmpfileB}"; cat >/dev/null;} 
           tail -n +$((endLine)) "${inputFile}" > "${tmpfileF}"
         fi
       fi
@@ -435,8 +434,9 @@
     readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
     maxCnt="${#indexlist[@]}"
 
+    echo "【$(basename ${inputFile})】"
     if [[ "${action}" == 'tl' ]] ; then 
-      echo 'ノード  行番号    アウトライン'
+      echo 'ノード 行番号    アウトライン'
       echo '------+--------+------------'
     else
       echo 'ノード  アウトライン'
