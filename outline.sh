@@ -317,7 +317,20 @@
                 sed -i -e "${tgtLine} s/^\./\.\./g" ${inputFile}
               done
               ;;
-        'u')  echo "未実装です"
+        'u')  i=0
+              while [[ ${depth} -gt ${depthCheck} ]];
+              do
+                ((i++))
+                depthCheck=$(echo "${indexlistN[$((${indexNo}-${i}))]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+                tg=$(echo "${indexlistN[$((${indexNo}-${i}))]}")
+              done
+              echo ${tg}
+        
+        
+        
+        
+        
+              exit 1
               ;;
         'd')  echo '未実装です'
               ;;
