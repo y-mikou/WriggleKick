@@ -318,13 +318,15 @@
               done
               ;;
         'u')  i=0
-              while [[ ${depth} -gt ${depthCheck} ]];
+              echo  "${depth}/${depthCheck}"
+              while [[ ${depth} -gt ${i} ]];
               do
-                ((i++))
-                depthCheck=$(echo "${indexlistN[$((${indexNo}-${i}))]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
-                tg=$(echo "${indexlistN[$((${indexNo}-${i}))]}")
+                i=$(($i+1))
+                depthCheck=$(echo "${indexlistN[ $(( ${indexNo} - ${i} )) ]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+                
+                echo "${i}:${depthCheck}"
               done
-              echo ${tg}
+              
         
         
         
@@ -414,10 +416,10 @@
       fi
     fi
 
-    case $action in
+    case "${action}" in
       'e')  "${selected_editor}" "${tmpfileB}"
             wait
-            sed -i -e '$a\' "${tmpfileB}" #編集の結果末尾に改行がない場合の対応
+            sed -i -e '$a\' "${tmpfileB}" #編集の結果末尾に改行がない場合
             cat "${tmpfileH}" "${tmpfileB}" "${tmpfileF}" > "${inputFile}"
             ;;
       'd')  cat "${tmpfileH}" "${tmpfileF}" > "${inputFile}"
