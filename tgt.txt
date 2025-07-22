@@ -2,6 +2,7 @@
 タイトルだよne3
 ああ
 aaaananika
+.New Node
 ..node1
 ので
 １
@@ -14,27 +15,64 @@ aaaananika
 ｓｓ
 ｓ
 ...node1-2
-
-
+aaaananika
+aaaananika
 ..node2
 
 っっっｓ
 
 ...node2-1
+aqqq
 ...node2-2
+qqq
+qqqq
+qqq
+..New Node3
+dsfdf
+....depth2-1
+fsdfs
+sdffsdf
+dsfdf
+dsfdf
 ....depth4
+sss
+
+
+
+
+ssss
+
+sss
 .....depth5
+ddddddddddddddddddd
 ......depth6
+dcsfds
+sdffsdf
+dsfdf
+
 .......depth7
+fsdfs
 ........depth8
 aaaananikas
 ff
-..New Node3
-....depth2-1
+..New Node
 ....depth9
+sdffsdf
+dsfdf
+
 .....New Node15
 desu
 ....depth2-2
+
+dsf
 .....depth10
+
+
+
+dcsfdsf
+
+dsf
+
 ......New Node
 
+dsfdsf

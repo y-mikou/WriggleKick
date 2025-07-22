@@ -286,7 +286,7 @@
       read -s -n 1 c
     else
 
-      startnodeSelectGroup="$(( ${indexNo}-1 ))"
+      startnodeSelectGroup="$(( ${indexNo} - 1 ))"
       replaceFrom="$(echo ${indexlistN[((indexNo-1))]} | cut -d: -f 2)"
       depth=$(echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l)
 
@@ -294,14 +294,18 @@
       do
         depthCheck=$(echo "${indexlistN[${i}]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
         if [[ ${depthCheck} -le ${depth} ]] ; then
-          endnodeSelectGroup=$((${i}-1))
+          endnodeSelectGroup=$((${i}))
           break
         fi
       done
 
-      if [[ ${endnodeSelectGroup} -le 0 ]] ; then
-        endnodeSelectGroup="${maxCnt}"
+      startlineSelectGroup=$(echo "${indexlistN[ ${startnodeSelectGroup} ]}" | cut -d':' -f 1)
+      if [[ ${endnodeSelectGroup} -ne ${maxCnt} ]] ; then
+        endlineSelectGroup=$(( $(echo "${indexlistN[ ${endnodeSelectGroup} ]}" | cut -d':' -f 1) - 1 ))
+      else
+        endlineSelectGroup=$(cat ${inputFile} | wc -l)
       fi
+      # echo "${startlineSelectGroup}-${endlineSelectGroup}"
 
       case "${action:2:1}" in
         #グループ単位の深さ移動
@@ -317,28 +321,118 @@
                 sed -i -e "${tgtLine} s/^\./\.\./g" ${inputFile}
               done
               ;;
-        'u')  i=0
-              echo  "${depth}/${depthCheck}"
-              while [[ ${depth} -gt ${i} ]];
+        'u')  indexCheck=$(( ${indexNo} - 2 ))
+              depthCheck=$(echo "${indexlistN[ ${indexCheck} ]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+              i=2
+              while [[ ${depth} -ne ${depthCheck} ]] && [[ ${indexCheck} -gt 0 ]] ;
+              do
+                indexCheck=$(( ${indexNo} - ${i} ))
+                depthCheck=$(echo "${indexlistN[ ${indexCheck} ]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+                i=$(($i+1))
+              done
+              if [[ ${indexCheck} -eq  0 ]] ; then
+                echo '移動可能なノードがありません'
+                read -s -n 1 c
+                bash "${0}" "${inputFile}" 't'
+                exit 0
+              fi
+
+              startlineTargetGroup=$(echo "${indexlistN[ ${indexCheck} ]}"| cut -d':' -f 1)
+              endlineTargetGroup=$(echo $(( $( echo "${indexlistN[ $((${indexNo}-1)) ]}"| cut -d':' -f 1 ) - 1 ))) 
+
+              startlineHeadGroup='1'
+              endlineHeadGroup=$(( ${startlineTargetGroup} - 1 ))
+
+              if [[ ${endnodeSelectGroup} -ne ${maxCnt} ]] ; then
+                startlineFooterGroup=$(( ${endlineSelectGroup} + 1))
+                endlineFooterGroup=$( cat "${inputFile}" | wc -l  )
+              fi
+
+              echo "${startlineHeadGroup}-${endlineHeadGroup}"
+              echo "${startlineTargetGroup}-${endlineTargetGroup}"
+              echo "${startlineSelectGroup}-${endlineSelectGroup}"
+              echo "${startlineFooterGroup}-${endlineFooterGroup}"
+exit 1
+
+              (
+                cat "${inputFile}" | { head -n "${endlineHeadGroup}" > "${tmpfileH}"; cat >/dev/null;}
+                cat "${inputFile}" | { sed -sn "${startlineSelectGroup},${endlineSelectGroup}p" > "${tmpfileT}"; cat >/dev/null;} 
+                cat "${inputFile}" | { sed -sn "${startlineTargetGroup},${endlineTargetGroup}p" > "${tmpfileB}"; cat >/dev/null;}
+
+                if [[ ${endnodeSelectGroup} -ne ${maxCnt} ]] ; then
+                  tail -n +"${startlineFooterGroup}" "${inputFile}" > "${tmpfileF}"
+                fi
+                wait
+              )
+              (
+                cat "${tmpfileH}" "${tmpfileT}" > "${tmpfile1}"
+                if [[ ${endnodeSelectGroup} -ne ${maxCnt} ]] ; then
+                  cat "${tmpfileB}" "${tmpfileF}" > "${tmpfile2}"
+                else
+                  cat "${tmpfileB}" > "${tmpfile2}"
+                fi
+                wait
+              )
+              cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
+        
+              ;;
+        'd')  indexCheck=$(( ${indexNo} + 1 ))
+              depthCheck=$(echo "${indexlistN[ ${indexCheck} ]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+              i=0
+              while [[ ${depth} -ne ${depthCheck} ]] && [[ ${indexCheck} -gt 0 ]] ;
               do
                 i=$(($i+1))
-                depthCheck=$(echo "${indexlistN[ $(( ${indexNo} - ${i} )) ]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
-                
-                echo "${i}:${depthCheck}"
+                indexCheck=$(( ${indexNo} + ${i} ))
+                depthCheck=$(echo "${indexlistN[ ${indexCheck} ]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
               done
-              
-        
-        
-        
-        
-        
-              exit 1
-              ;;
-        'd')  echo '未実装です'
+              if [[ ${indexCheck} -eq  0 ]] ; then
+                echo '移動可能なノードがありません'
+                read -s -n 1 c
+                bash "${0}" "${inputFile}" 't'
+                exit 0
+              fi
+              indexCheck=$(($i+indexCheck))
+
+              i=0
+              while [[ ${depth} -ne ${depthCheck} ]] && [[ ${indexCheck} -gt 0 ]] ;
+              do
+                i=$(($i+1))
+                indexCheck=$(( ${indexNo} + ${i} ))
+                depthCheck=$(echo "${indexlistN[ ${indexCheck} ]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+              done
+
+
+              startlineTargetGroup=$(echo "${indexlistN[ $((${indexCheck})) ]}"| cut -d':' -f 1)
+              endlineTargetGroup=$(echo $(( $( echo "${indexlistN[ $((${indexCheck} + 1 )) ]}"| cut -d':' -f 1 ) - 1 )))
+
+
+              startlineHeadGroup='1'
+              endlineHeadGroup=$(( ${startlineSelectGroup} - 1 ))
+
+              startlineFooterGroup=$(( ${endlineTargetGroup} + 1))
+              endlineFooterGroup=$( cat "${inputFile}" | wc -l  )
+
+              echo "${startlineHeadGroup}-${endlineHeadGroup}"
+              echo "${startlineSelectGroup}-${endlineSelectGroup}"
+              echo "${startlineTargetGroup}-${endlineTargetGroup}"
+              echo "${startlineFooterGroup}-${endlineFooterGroup}"
+exit 1
+              (
+                cat "${inputFile}" | { head -n "${endlineHeadGroup}" > "${tmpfileH}"; cat >/dev/null;}
+                cat "${inputFile}" | { sed -sn "${startlineTargetGroup},${endlineTargetGroup}p" > "${tmpfileT}"; cat >/dev/null;} 
+                cat "${inputFile}" | { sed -sn "${startlineSelectGroup},${endlineSelectGroup}p" > "${tmpfileB}"; cat >/dev/null;}
+                tail -n +"${startlineFooterGroup}" "${inputFile}" > "${tmpfileF}"
+                wait
+              )
+              (
+                cat "${tmpfileH}" "${tmpfileT}" > "${tmpfile1}"
+                cat "${tmpfileB}" "${tmpfileF}" > "${tmpfile2}"
+                wait
+              )
+              cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
               ;;
         *)    echo 'err'
               read -s -n 1 c
-              break
               ;;
       esac
 
