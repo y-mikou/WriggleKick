@@ -62,6 +62,8 @@
     echo '　引数2:動作指定'
     echo '　　　　　t.....ツリービュー(省略可)'
     echo '　　　　　tl....行番号付きツリービュー'
+    echo '　　　　　f.....フォーカスビュー'
+    echo '　　　　　fl....行番号付きフォーカスビュー'
     echo '　　　　　v.....対象ノードの閲覧'
     echo '　　　　　e.....対象ノードの編集'
     echo '　　　　　d.....対象ノードの削除'
@@ -97,7 +99,7 @@
     exit 0
   fi
 
-  allowActionList=('e' 'd' 'i' 't' 'tl' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+  allowActionList=('e' 'd' 'i' 't' 'tl' 'f' 'fl' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
   printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
   if [[ ${?} -ne 0 ]] ; then
     echo '引数2:無効なアクションです'
@@ -106,7 +108,7 @@
     exit 0
   fi
 
-  needNodeActionList=('e' 'd' 'i' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+  needNodeActionList=('e' 'd' 'i' 'f' 'fl' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
   printf '%s\n' "${needNodeActionList[@]}" | grep -qx "${action}"
   if [[ ${?} -eq 0 ]] ; then
     if [[ ${#indexNo} = 0 ]] ; then
@@ -281,6 +283,7 @@
     #ノードの検出   
     readarray -t indexlistN < <(grep -nP '^\.+.+' ${inputFile})
     maxCnt="${#indexlistN[@]}"
+    
     if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
       echo "${indexNo}番目のノードは存在しません"
       read -s -n 1 c
@@ -513,7 +516,7 @@ exit 1
     case "${action}" in
       'e')  "${selected_editor}" "${tmpfileB}"
             wait
-            sed -i -e '$a\' "${tmpfileB}" #編集の結果末尾に改行がない場合
+            sed -i -e '$a\' "${tmpfileB}" #編集の結果末尾に改行がない場合'
             cat "${tmpfileH}" "${tmpfileB}" "${tmpfileF}" > "${inputFile}"
             ;;
       'd')  cat "${tmpfileH}" "${tmpfileF}" > "${inputFile}"
@@ -584,3 +587,80 @@ exit 1
   fi
 }
 
+: "フォーカス表示" && {
+  if [[ "${action}" == 'f' ]] || [[ "${action}" == 'fl' ]] ; then
+    #ノードの検出   
+
+    readarray -t indexlistN < <(grep -nP '^\.+.+' ${inputFile})
+
+    maxCnt="${#indexlistN[@]}"
+    if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
+      echo "${indexNo}番目のノードは存在しません"
+      read -s -n 1 c
+    fi
+    
+    startnodeSelectGroup="$(( ${indexNo} ))"
+    replaceFrom="$(echo ${indexlistN[((indexNo-1))]} | cut -d: -f 2)"
+    depth=$(echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l)
+
+    for i in $(seq $((${indexNo})) $((${maxCnt}))) ;
+    do
+      depthCheck=$(echo "${indexlistN[${i}]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+      if [[ ${depthCheck} -le ${depth} ]] ; then
+        endnodeSelectGroup=$((${i}))
+        break
+      fi
+    done
+
+    if [[ ${endnodeSelectGroup} -le 0 ]] ; then
+      endnodeSelectGroup="${maxCnt}"
+    fi
+
+    echo "【$(basename ${inputFile})】★フォーカス表示中"
+    if [[ "${action}" == 'tl' ]] ; then 
+      echo 'ノード 行番号    アウトライン'
+      echo '------+--------+------------'
+    else
+      echo 'ノード  アウトライン'
+      echo '------+------------'
+    fi
+
+    seq ${startnodeSelectGroup} ${endnodeSelectGroup} | {
+      while read -r cnt ; do
+        arrycnt=$((cnt-1))
+        line=$(echo "${indexlistN[arrycnt]}" | cut -d: -f 1)
+        depth=$(echo "${indexlistN[arrycnt]}" | cut -d: -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+
+        printf "%06d" "${cnt}"
+        if [[ "${action}" == 'tl' ]] ; then 
+          printf " %08d" "${line}"
+        fi
+        seq ${depth} | while read -r line; do printf '  '; done
+        case "${depth}" in
+          '1') printf '📚️ '
+                ;;
+          [2]) printf '└📗 '
+                ;;
+          [34]) printf '└📖 '
+                  ;;
+          [567]) printf '└📄 '
+                  ;;
+          [89]) printf '└🏷️ '
+                  ;;
+          '10')  printf '└🗨️ '
+                  ;;        
+          *) printf '└🗨️ '
+              ;;
+        esac 
+        #表示時にはノードを示す'.'を消す
+        dots=$(echo "${indexlistN[arrycnt]}" | cut -d: -f 2 | grep -oP '^\.+' )
+        title=$(echo "${indexlistN[arrycnt]}" | cut -d: -f 2)
+        title="${title#$dots}"
+        echo "${title}"
+      done
+    }
+
+    echo '❓️引数なしでhelp参照'
+    exit 0
+  fi
+}
