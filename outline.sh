@@ -79,8 +79,94 @@
 
     echo '❓️引数なしでhelp参照'
     exit 0
-  }  
+  }
 }
+
+: "フォーカスモードコマンド" && {
+  ##############################################################################
+  # 対象グループをフォーカス表示する
+  # f:通常フォーカス表示
+  # fl:行番号付きフォーカス表示
+  # 戻り値:0(成功)/9(失敗)
+  ##############################################################################
+  function focusMode {
+    #ノードの検出   
+
+    readarray -t indexlistN < <(grep -nP '^\.+.+' ${inputFile})
+
+    maxCnt="${#indexlistN[@]}"
+    if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
+      echo "${indexNo}番目のノードは存在しません"
+      read -s -n 1 c
+    fi
+    
+    startnodeSelectGroup="$(( ${indexNo} ))"
+    replaceFrom="$(echo ${indexlistN[((indexNo-1))]} | cut -d: -f 2)"
+    depth=$(echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l)
+
+    for i in $(seq $((${indexNo})) $((${maxCnt}))) ;
+    do
+      depthCheck=$(echo "${indexlistN[${i}]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+      if [[ ${depthCheck} -le ${depth} ]] ; then
+        endnodeSelectGroup=$((${i}))
+        break
+      fi
+    done
+
+    if [[ ${endnodeSelectGroup} -le 0 ]] ; then
+      endnodeSelectGroup="${maxCnt}"
+    fi
+
+    echo "【$(basename ${inputFile})】★フォーカス表示中"
+    if [[ "${action}" == 'fl' ]] ; then 
+      echo 'ノード 行番号    アウトライン'
+      echo '------+--------+------------'
+    else
+      echo 'ノード  アウトライン'
+      echo '------+------------'
+    fi
+
+    seq ${startnodeSelectGroup} ${endnodeSelectGroup} | {
+      while read -r cnt ; do
+      arrycnt=$((cnt-1))
+      line=$(echo "${indexlistN[arrycnt]}" | cut -d: -f 1)
+      depth=$(echo "${indexlistN[arrycnt]}" | cut -d: -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+
+      printf "%06d" "${cnt}"
+      if [[ "${action}" == 'fl' ]] ; then 
+        printf " %08d" "${line}"
+      fi
+      seq ${depth} | while read -r line; do printf '  '; done
+        case "${depth}" in
+          '1') printf '📚️ '
+               ;;
+          [2]) printf '└📗 '
+               ;;
+          [34]) printf '└📖 '
+                ;;
+          [567]) printf '└📄 '
+                 ;;
+          [89]) printf '└🏷️ '
+                ;;
+          '10')  printf '└🗨️ '
+                 ;;        
+          *) printf '└🗨️ '
+             ;;
+        esac 
+        #表示時にはノードを示す'.'を消す
+        dots=$(echo "${indexlistN[arrycnt]}" | cut -d: -f 2 | grep -oP '^\.+' )
+        title=$(echo "${indexlistN[arrycnt]}" | cut -d: -f 2)
+        title="${title#$dots}"
+        echo "${title}"
+      done
+    }
+
+    echo '❓️引数なしでhelp参照'
+    exit 0
+   
+  }
+}
+
 
 : "単ノード移動コマンド" && {
   ##############################################################################
@@ -428,13 +514,11 @@
             ;;
       'm')  moveNode
             ;;
+      'f')  focusMode
+            ;;
       *) ;;
     esac
-
-
-
-  }
-  
+  }  
 }
 
 ###########################################
@@ -447,130 +531,7 @@ main "${1}" "${2}" "${3}"
 trap rm_tmpfile EXIT
 # 異常終了したときに一時ファイルを削除する
 trap 'trap - EXIT; rm_tmpfile; exit -1' INT PIPE TERM
-
-
-
-# : "移動" &&  {
-#   if [[ ${action:0:1} == 'm' ]] ; then
-#     #ノードの検出
-#     readarray -t indexlistN < <(grep -nP '^\.+.+' ${inputFile})
-#     maxCnt="${#indexlistN[@]}"
-#     if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
-#       echo "${indexNo}番目のノードは存在しません"
-#       read -s -n 1 c
-#     else
-#       tgtLine="$(echo ${indexlistN[((indexNo-1))]} | cut -d: -f 1)"
-#       replaceFrom="$(echo ${indexlistN[((indexNo-1))]} | cut -d: -f 2)"
-#       depth=$(echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l)
-
-#       direction="${action:1:1}"
-
-#       case "${direction}" in
-#         'l')  if [[ $depth -le 1 ]] ; then
-#                 echo 'それ以上浅くできません'
-#                 read -s -n 1 c
-#               else
-#                 sed -i -e "$tgtLine s/^\.\./\./g" ${inputFile}
-#                 bash "${0}" "${inputFile}" 't'
-#                 exit 0
-#               fi
-#               ;;
-#         'r')  if [[ $depth -ge 10 ]] ; then
-#                 echo 'それ以上深くできません'
-#                 read -s -n 1 c
-#               else
-#                 sed -i -e "$tgtLine s/^/\./g" ${inputFile}
-#                 bash "${0}" "${inputFile}" 't'
-#                 exit 0
-#               fi
-#               ;;
-#         'u')  if [[ ${indexNo} -ne 1 ]] ; then
-#                 indexTargetNode="${indexlistN[ $(( ${indexNo} -2 )) ]}"
-#                 indexSelectNode="${indexlistN[ $(( ${indexNo} -1 )) ]}"
-#                 indexNextNode="${indexlistN[   $(( ${indexNo}    )) ]}"
-
-#                 endlinePreviousNode=$(( $( echo "${indexTargetNode}" | cut -d: -f 1 ) -1 ))
-#                 startlineTargetNode=$(( $( echo "${indexTargetNode}" | cut -d: -f 1 )    ))
-#                 endlineTargetNode=$((   $( echo "${indexSelectNode}" | cut -d: -f 1 ) -1 ))
-#                 startlineSelectNode=$(( $( echo "${indexSelectNode}" | cut -d: -f 1 )    ))
-#                 if [[ ${indexNo} -eq ${maxCnt} ]] ; then
-#                   endlineSelectNode=$(cat "${inputFile}" | wc -l )
-#                   startlineNextNode=''
-#                 else
-#                   endlineSelectNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 ) -1 ))
-#                   startlineNextNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 )    ))
-#                 fi
-                
-#                 (
-#                   cat "${inputFile}" | { head -n "${endlinePreviousNode}" > "${tmpfileH}"; cat >/dev/null;}
-#                   cat "${inputFile}" | { sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}"; cat >/dev/null;}
-#                   cat "${inputFile}" | { sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}"; cat >/dev/null;}
-#                   if [[ ! ${startlineNextNode} = '' ]] ; then 
-#                     tail -n +"${startlineNextNode}" "${inputFile}" > "${tmpfileF}"
-#                   fi
-#                   wait
-#                 )
-#                 (
-#                   cat "${tmpfileH}" "${tmpfileB}" > "${tmpfile1}"
-#                   cat "${tmpfileT}" "${tmpfileF}" > "${tmpfile2}"
-#                   wait
-#                 )
-#                 cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
-#               else
-#                 echo '1番目のノードは上に移動できません。'
-#                 read -s -n 1 c
-#               fi
-#               ;;
-#         'd')  if [[ ${indexNo} -ne ${maxCnt} ]] ; then
-
-#                 indexPreviousNode="${indexlistN[ $(( ${indexNo} -2 )) ]}"
-#                 indexSelectNode="${indexlistN[   $(( ${indexNo} -1 )) ]}"
-#                 indexTargetNode="${indexlistN[   $(( ${indexNo}    )) ]}"
-#                 indexNextNode="${indexlistN[     $(( ${indexNo} +1 )) ]}"
-#                 endlinePreviousNode=$(( $( echo "${indexSelectNode}" | cut -d: -f 1 ) -1 ))
-
-#                 startlineSelectNode=$(( $( echo "${indexSelectNode}" | cut -d: -f 1 )    ))
-#                 endlineSelectNode=$((   $( echo "${indexTargetNode}" | cut -d: -f 1 ) -1 ))
-#                 startlineTargetNode=$(( $( echo "${indexTargetNode}" | cut -d: -f 1 )    ))
-
-#                 if [[ $((${indexNo}+1)) -eq ${maxCnt} ]] ; then
-#                   endlineTargetNode=$(cat "${inputFile}" | wc -l )
-#                 else
-#                   endlineTargetNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 ) -1 ))
-#                   startlineNextNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 )    ))
-#                 fi
-
-#                 (
-#                   cat "${inputFile}" | { head -n "${endlinePreviousNode}" > "${tmpfileH}"; cat >/dev/null;}
-#                   cat "${inputFile}" | { sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}"; cat >/dev/null;} 
-#                   cat "${inputFile}" | { sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}"; cat >/dev/null;}
-#                   if [[ ! ${startlineNextNode} = '' ]] ; then 
-#                     tail -n +"${startlineNextNode}" "${inputFile}" > "${tmpfileF}"
-#                   fi
-#                   wait
-#                 )
-#                 (
-#                   cat "${tmpfileH}" "${tmpfileT}" > "${tmpfile1}"
-#                   cat "${tmpfileB}" "${tmpfileF}" > "${tmpfile2}"
-#                   wait
-#                 )
-#                 cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
-#               else
-#                 echo '最後のノードは下に移動できません。'
-#                 read -s -n 1 c
-#               fi
-#               ;;
-#         *)    echo 'err'
-#               exit 1
-#               ;;
-#       esac
-#     fi
-
-#     bash "${0}" "${inputFile}" 't'
-#     exit 0
-
-#   fi
-# }
+ 
 
 # : "グループ移動" &&  {
 #   if [[ ${action:0:2} == 'gm' ]] ; then
@@ -827,135 +788,4 @@ trap 'trap - EXIT; rm_tmpfile; exit -1' INT PIPE TERM
 #   fi
 # }
 
-# : "ツリー表示" && {
-#   if [[ "${action}" == 't' ]] || [[ "${action}" == 'tl' ]] ; then
-#     #ノードの検出
-#     readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
-#     maxCnt="${#indexlist[@]}"
 
-#     echo "【$(basename ${inputFile})】"
-#     if [[ "${action}" == 'tl' ]] ; then 
-#       echo 'ノード 行番号    アウトライン'
-#       echo '------+--------+------------'
-#     else
-#       echo 'ノード  アウトライン'
-#       echo '------+------------'
-#     fi
-
-#     seq $((maxCnt)) | {
-#       while read -r cnt ; do
-#         arrycnt=$((cnt-1))
-#         line=$(echo "${indexlist[arrycnt]}" | cut -d: -f 1)
-#         depth=$(echo "${indexlist[arrycnt]}" | cut -d: -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
-
-#         printf "%06d" "${cnt}"
-#         if [[ "${action}" == 'tl' ]] ; then 
-#           printf " %08d" "${line}"
-#         fi
-#         seq ${depth} | while read -r line; do printf '  '; done
-#         case "${depth}" in
-#           '1') printf '📚️ '
-#                 ;;
-#           [2]) printf '└📗 '
-#                 ;;
-#           [34]) printf '└📖 '
-#                   ;;
-#           [567]) printf '└📄 '
-#                   ;;
-#           [89]) printf '└🏷️ '
-#                   ;;
-#           '10')  printf '└🗨️ '
-#                   ;;        
-#           *) printf '└🗨️ '
-#               ;;
-#         esac 
-#         #表示時にはノードを示す'.'を消す
-#         dots=$(echo "${indexlist[arrycnt]}" | cut -d: -f 2 | grep -oP '^\.+' )
-#         title=$(echo "${indexlist[arrycnt]}" | cut -d: -f 2)
-#         title="${title#$dots}"
-#         echo "${title}"
-#       done
-#     }
-
-#     echo '❓️引数なしでhelp参照'
-#     exit 0
-#   fi
-# }
-
-# : "フォーカス表示" && {
-#   if [[ "${action}" == 'f' ]] || [[ "${action}" == 'fl' ]] ; then
-#     #ノードの検出   
-
-#     readarray -t indexlistN < <(grep -nP '^\.+.+' ${inputFile})
-
-#     maxCnt="${#indexlistN[@]}"
-#     if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
-#       echo "${indexNo}番目のノードは存在しません"
-#       read -s -n 1 c
-#     fi
-    
-#     startnodeSelectGroup="$(( ${indexNo} ))"
-#     replaceFrom="$(echo ${indexlistN[((indexNo-1))]} | cut -d: -f 2)"
-#     depth=$(echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l)
-
-#     for i in $(seq $((${indexNo})) $((${maxCnt}))) ;
-#     do
-#       depthCheck=$(echo "${indexlistN[${i}]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
-#       if [[ ${depthCheck} -le ${depth} ]] ; then
-#         endnodeSelectGroup=$((${i}))
-#         break
-#       fi
-#     done
-
-#     if [[ ${endnodeSelectGroup} -le 0 ]] ; then
-#       endnodeSelectGroup="${maxCnt}"
-#     fi
-
-#     echo "【$(basename ${inputFile})】★フォーカス表示中"
-#     if [[ "${action}" == 'tl' ]] ; then 
-#       echo 'ノード 行番号    アウトライン'
-#       echo '------+--------+------------'
-#     else
-#       echo 'ノード  アウトライン'
-#       echo '------+------------'
-#     fi
-
-#     seq ${startnodeSelectGroup} ${endnodeSelectGroup} | {
-#       while read -r cnt ; do
-#         arrycnt=$((cnt-1))
-#         line=$(echo "${indexlistN[arrycnt]}" | cut -d: -f 1)
-#         depth=$(echo "${indexlistN[arrycnt]}" | cut -d: -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
-
-#         printf "%06d" "${cnt}"
-#         if [[ "${action}" == 'tl' ]] ; then 
-#           printf " %08d" "${line}"
-#         fi
-#         seq ${depth} | while read -r line; do printf '  '; done
-#         case "${depth}" in
-#           '1') printf '📚️ '
-#                 ;;
-#           [2]) printf '└📗 '
-#                 ;;
-#           [34]) printf '└📖 '
-#                   ;;
-#           [567]) printf '└📄 '
-#                   ;;
-#           [89]) printf '└🏷️ '
-#                   ;;
-#           '10')  printf '└🗨️ '
-#                   ;;        
-#           *) printf '└🗨️ '
-#               ;;
-#         esac 
-#         #表示時にはノードを示す'.'を消す
-#         dots=$(echo "${indexlistN[arrycnt]}" | cut -d: -f 2 | grep -oP '^\.+' )
-#         title=$(echo "${indexlistN[arrycnt]}" | cut -d: -f 2)
-#         title="${title#$dots}"
-#         echo "${title}"
-#       done
-#     }
-
-#     echo '❓️引数なしでhelp参照'
-#     exit 0
-#   fi
-# }
