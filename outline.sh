@@ -17,7 +17,7 @@
     tgtLine="$(echo ${indexlist[((indexNo-1))]} | cut -d: -f 1)"
     replaceFrom="$(echo ${indexlist[((indexNo-1))]} | cut -d: -f 2)"
     depth=$(echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l)
-  
+
   }
 }
 
@@ -90,23 +90,12 @@
   # 戻り値:0(成功)/9(失敗)
   ##############################################################################
   function focusMode {
-    #ノードの検出   
-
-    readarray -t indexlistN < <(grep -nP '^\.+.+' ${inputFile})
-
-    maxCnt="${#indexlistN[@]}"
-    if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
-      echo "${indexNo}番目のノードは存在しません"
-      read -s -n 1 c
-    fi
-    
-    startnodeSelectGroup="$(( ${indexNo} ))"
-    replaceFrom="$(echo ${indexlistN[((indexNo-1))]} | cut -d: -f 2)"
-    depth=$(echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l)
+    #ノードの検出
+    detectNode
 
     for i in $(seq $((${indexNo})) $((${maxCnt}))) ;
     do
-      depthCheck=$(echo "${indexlistN[${i}]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+      depthCheck=$(echo "${indexlist[${i}]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
       if [[ ${depthCheck} -le ${depth} ]] ; then
         endnodeSelectGroup=$((${i}))
         break
@@ -117,7 +106,7 @@
       endnodeSelectGroup="${maxCnt}"
     fi
 
-    echo "【$(basename ${inputFile})】★フォーカス表示中"
+    echo "【$(basename ${inputFile})】★ フォーカス表示中"
     if [[ "${action}" == 'fl' ]] ; then 
       echo 'ノード 行番号    アウトライン'
       echo '------+--------+------------'
@@ -129,8 +118,8 @@
     seq ${startnodeSelectGroup} ${endnodeSelectGroup} | {
       while read -r cnt ; do
       arrycnt=$((cnt-1))
-      line=$(echo "${indexlistN[arrycnt]}" | cut -d: -f 1)
-      depth=$(echo "${indexlistN[arrycnt]}" | cut -d: -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+      line=$(echo "${indexlist[arrycnt]}" | cut -d: -f 1)
+      depth=$(echo "${indexlist[arrycnt]}" | cut -d: -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
 
       printf "%06d" "${cnt}"
       if [[ "${action}" == 'fl' ]] ; then 
@@ -154,8 +143,8 @@
              ;;
         esac 
         #表示時にはノードを示す'.'を消す
-        dots=$(echo "${indexlistN[arrycnt]}" | cut -d: -f 2 | grep -oP '^\.+' )
-        title=$(echo "${indexlistN[arrycnt]}" | cut -d: -f 2)
+        dots=$(echo "${indexlist[arrycnt]}" | cut -d: -f 2 | grep -oP '^\.+' )
+        title=$(echo "${indexlist[arrycnt]}" | cut -d: -f 2)
         title="${title#$dots}"
         echo "${title}"
       done
@@ -167,17 +156,93 @@
   }
 }
 
-
-: "単ノード移動コマンド" && {
+: "ノード削除・編集・閲覧コマンド" && {
   ##############################################################################
-  # 対象のノード一つだけを移動する(指定の方向のノードと入れ替える)
+  # d:対象のノードを削除する
+  # e:対象のノードを編集する
+  # v:対象のノードを閲覧する
   # 戻り値:0(成功)/9(失敗)
   ##############################################################################
-  function moveNode {
+  function singleNodeOperations {
+    
+    #ノードの検出
+    detectNode
 
-    direction="${char2}"
+    startLine=$(echo "${indexlist[$((indexNo-1))]}" | cut -d: -f 1)
+    endLine=$(echo "${indexlist[((indexNo))]}" | cut -d: -f 1)
 
-    case "${direction}" in
+    if [[ ${indexNo} -eq 1 ]]; then
+      cat "${inputFile}" | { sed -n "1, $((endLine-1))p" > "${tmpfileB}"; cat >/dev/null;}
+      tail -n +$((endLine)) "${inputFile}" > "${tmpfileF}"
+    else
+      if [[ ${indexNo} -eq $maxCnt ]]; then
+        cat "${inputFile}" | { head -n "$((startLine-1))" > "${tmpfileH}"; cat >/dev/null;}
+        cat "${inputFile}" | { tail -n +$((startLine))  > "${tmpfileB}"; cat >/dev/null;}
+        echo '' > "${tmpfileF}"
+      else
+        cat "${inputFile}" | { head -n "$((startLine-1))" > "${tmpfileH}"; cat >/dev/null;}
+        cat "${inputFile}" | { sed -n "$((startLine)), $((endLine-1))p" > "${tmpfileB}"; cat >/dev/null;} 
+        tail -n +$((endLine)) "${inputFile}" > "${tmpfileF}"
+      fi
+    fi
+
+    case "${action}" in
+      'e')  "${selected_editor}" "${tmpfileB}"
+            wait
+            sed -i -e '$a\' "${tmpfileB}" #編集の結果末尾に改行がない場合'
+            cat "${tmpfileH}" "${tmpfileB}" "${tmpfileF}" > "${inputFile}"
+            ;;
+      'd')  cat "${tmpfileH}" "${tmpfileF}" > "${inputFile}"
+            ;;
+      'v')  "${selected_viewer}" "${tmpfileB}"
+            ;;
+      *)    echo '不正な引数です。'
+    esac
+
+    bash "${0}" "${inputFile}" 't'
+    exit 0
+  }
+}
+
+: "ノード挿入コマンド" && {
+  ##############################################################################
+  # 対象のノードの下に新しいノードを挿入する
+  # 戻り値:0(成功)/9(失敗)
+  ##############################################################################
+  function insertNode {
+    
+    #ノードの検出
+    detectNode
+
+    nlString='New Node'
+    firstHalfEndLine=$(($(echo "${indexlist[$((indexNo))]}" | cut -d: -f 1)-1))
+    secondHalfStartLine=$(($(echo "${indexlist[$((indexNo))]}" | cut -d: -f 1)))
+
+    dots=$(seq ${depth} | while read -r line; do printf '.'; done)
+    echo "${dots}${nlString}" > "${tmpfileB}"
+    cat "${inputFile}" | { head -n "$((firstHalfEndLine))" > "${tmpfileH}"; cat >/dev/null;}
+
+    if [[ ${indexNo} -eq ${maxCnt} ]] ;then
+      awk 1 "${inputFile}" "${tmpfileB}" > "${tmpfile1}"
+      cat "${tmpfile1}" > "${inputFile}"
+
+    else
+      cat "${inputFile}" | { tail -n +$((secondHalfStartLine))  > "${tmpfileF}"; cat >/dev/null;}
+      cat "${tmpfileH}" "${tmpfileB}" "${tmpfileF}" > "${inputFile}"
+    fi
+
+    bash "${0}" "${inputFile}" 't'
+    exit 0
+  }
+}
+
+: "単ノード深さ変更コマンド" && {
+  ##############################################################################
+  # 対象のノード一つだけの深さを変更する
+  # 戻り値:0(成功)/9(失敗)
+  ##############################################################################
+  function slideNode {
+    case "${char2}" in
       'l')  if [[ $depth -le 1 ]] ; then
               echo 'それ以上浅くできません'
               read -s -n 1 c
@@ -192,6 +257,24 @@
               sed -i -e "$tgtLine s/^/\./g" ${inputFile}
             fi
             ;;
+      *)    echo 'err'
+            exit 1
+            ;;
+    esac
+
+    bash "${0}" "${inputFile}" 't'
+    exit 0
+
+  }
+}
+
+: "単ノード上下交換コマンド" && {
+  ##############################################################################
+  # 対象のノード一つだけを上下に移動する(指定の方向のノードと入れ替える)
+  # 戻り値:0(成功)/9(失敗)
+  ##############################################################################
+  function swapNode {
+    case "${char2}" in
       'u')  if [[ ${indexNo} -ne 1 ]] ; then
               indexTargetNode="${indexlistN[ $(( ${indexNo} -2 )) ]}"
               indexSelectNode="${indexlistN[ $(( ${indexNo} -1 )) ]}"
@@ -225,11 +308,15 @@
                 wait
               )
               cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
+
             else
+
               echo '1番目のノードは上に移動できません。'
               read -s -n 1 c
+
             fi
             ;;
+
       'd')  if [[ ${indexNo} -ne ${maxCnt} ]] ; then
 
               indexPreviousNode="${indexlistN[ $(( ${indexNo} -2 )) ]}"
@@ -264,11 +351,15 @@
                 wait
               )
               cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
+
             else
+
               echo '最後のノードは下に移動できません。'
               read -s -n 1 c
+
             fi
             ;;
+
       *)    echo 'err'
             exit 1
             ;;
@@ -276,9 +367,207 @@
 
     bash "${0}" "${inputFile}" 't'
     exit 0
+  }
+}
+
+: "配下ノード深さ変更コマンド" && {
+  ##############################################################################
+  # 対象のノードとその配下の深さを、一緒に変更する
+  # 戻り値:0(成功)/9(失敗)
+  ##############################################################################
+  function slideGroup {
+    #ノードの検出
+    detectNode    
+
+    startnodeSelectGroup="$(( ${indexNo} -1 ))"
+
+    for i in $(seq $((${indexNo})) $((${maxCnt}))) ;
+    do
+      depthCheck=$(echo "${indexlist[${i}]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+      if [[ ${depthCheck} -le ${depth} ]] ; then
+        endnodeSelectGroup=$(( ${i} -1 ))
+        break
+      fi
+    done
+
+    startlineSelectGroup=$(echo "${indexlist[ ${startnodeSelectGroup} ]}" | cut -d':' -f 1)
+    if [[ ${endnodeSelectGroup} -ne ${maxCnt} ]] ; then
+      endlineSelectGroup=$(( $(echo "${indexlist[ ${endnodeSelectGroup} ]}" | cut -d':' -f 1) - 1 ))
+    else
+      endlineSelectGroup=$(cat ${inputFile} | wc -l)
+    fi
+
+    case "${char3}" in
+      'l')  for i in $(seq ${startnodeSelectGroup} ${endnodeSelectGroup}) ;
+            do
+              tgtLine=$(echo "${indexlist[$i]}" | cut -d: -f 1)
+              sed -i -e "${tgtLine} s/^\.\./\./g" ${inputFile}
+            done
+            ;;
+      'r')  for i in $(seq ${startnodeSelectGroup} ${endnodeSelectGroup}) ;
+            do
+              tgtLine=$(echo "${indexlist[$i]}" | cut -d: -f 1)
+              sed -i -e "${tgtLine} s/^\./\.\./g" ${inputFile}
+            done
+            ;;
+      *)    echo 'err'
+            read -s -n 1 c
+            ;;
+    esac
+
+    bash "${0}" "${inputFile}" 't'
+    exit 0
 
   }
+}
 
+: "配下ノード上下交換コマンド" && {
+  ##############################################################################
+  # 対象のノードとその配下と、対象ノードと同じ高さの上下ノードとその配下とを、同時に入れ替える
+  # 戻り値:0(成功)/9(失敗)
+  ##############################################################################
+  function swapGroup {
+    #ノードの検出
+    detectNode    
+
+    startnodeSelectGroup="$(( ${indexNo} -1 ))"
+
+    for i in $(seq $((${indexNo})) $((${maxCnt}))) ;
+    do
+      depthCheck=$(echo "${indexlist[${i}]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+      if [[ ${depthCheck} -le ${depth} ]] ; then
+        endnodeSelectGroup=$(( ${i} -1 ))
+        break
+      fi
+    done
+
+    startlineSelectGroup=$(echo "${indexlist[ ${startnodeSelectGroup} ]}" | cut -d':' -f 1)
+    if [[ ${endnodeSelectGroup} -ne ${maxCnt} ]] ; then
+      endlineSelectGroup=$(( $(echo "${indexlist[ ${endnodeSelectGroup} ]}" | cut -d':' -f 1) - 1 ))
+    else
+      endlineSelectGroup=$(cat ${inputFile} | wc -l)
+    fi
+
+    case "${char3}" in
+      'u')  indexCheck=$(( ${indexNo} - 2 ))
+            depthCheck=$(echo "${indexlistN[ ${indexCheck} ]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+            i=2
+            while [[ ${depth} -ne ${depthCheck} ]] && [[ ${indexCheck} -gt 0 ]] ;
+            do
+              indexCheck=$(( ${indexNo} - ${i} ))
+              depthCheck=$(echo "${indexlistN[ ${indexCheck} ]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+              i=$(($i+1))
+            done
+            if [[ ${indexCheck} -eq  0 ]] ; then
+              echo '移動可能なノードがありません'
+              read -s -n 1 c
+              bash "${0}" "${inputFile}" 't'
+              exit 0
+            fi
+
+            startlineTargetGroup=$(echo "${indexlistN[ ${indexCheck} ]}"| cut -d':' -f 1)
+            endlineTargetGroup=$(echo $(( $( echo "${indexlistN[ $((${indexNo}-1)) ]}"| cut -d':' -f 1 ) - 1 ))) 
+
+            startlineHeadGroup='1'
+            endlineHeadGroup=$(( ${startlineTargetGroup} - 1 ))
+
+            if [[ ${endnodeSelectGroup} -ne ${maxCnt} ]] ; then
+              startlineFooterGroup=$(( ${endlineSelectGroup} + 1))
+              endlineFooterGroup=$( cat "${inputFile}" | wc -l  )
+            fi
+
+            echo "${startlineHeadGroup}-${endlineHeadGroup}"
+            echo "${startlineTargetGroup}-${endlineTargetGroup}"
+            echo "${startlineSelectGroup}-${endlineSelectGroup}"
+            echo "${startlineFooterGroup}-${endlineFooterGroup}"
+exit 1
+
+            (
+              cat "${inputFile}" | { head -n "${endlineHeadGroup}" > "${tmpfileH}"; cat >/dev/null;}
+              cat "${inputFile}" | { sed -sn "${startlineSelectGroup},${endlineSelectGroup}p" > "${tmpfileT}"; cat >/dev/null;} 
+              cat "${inputFile}" | { sed -sn "${startlineTargetGroup},${endlineTargetGroup}p" > "${tmpfileB}"; cat >/dev/null;}
+
+              if [[ ${endnodeSelectGroup} -ne ${maxCnt} ]] ; then
+                tail -n +"${startlineFooterGroup}" "${inputFile}" > "${tmpfileF}"
+              fi
+              wait
+            )
+            (
+              cat "${tmpfileH}" "${tmpfileT}" > "${tmpfile1}"
+              if [[ ${endnodeSelectGroup} -ne ${maxCnt} ]] ; then
+                cat "${tmpfileB}" "${tmpfileF}" > "${tmpfile2}"
+              else
+                cat "${tmpfileB}" > "${tmpfile2}"
+              fi
+              wait
+            )
+            cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
+      
+            ;;
+      'd')  indexCheck=$(( ${indexNo} + 1 ))
+            depthCheck=$(echo "${indexlistN[ ${indexCheck} ]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+            i=0
+            while [[ ${depth} -ne ${depthCheck} ]] && [[ ${indexCheck} -gt 0 ]] ;
+            do
+              i=$(($i+1))
+              indexCheck=$(( ${indexNo} + ${i} ))
+              depthCheck=$(echo "${indexlistN[ ${indexCheck} ]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+            done
+            if [[ ${indexCheck} -eq  0 ]] ; then
+              echo '移動可能なノードがありません'
+              read -s -n 1 c
+              bash "${0}" "${inputFile}" 't'
+              exit 0
+            fi
+            indexCheck=$(($i+indexCheck))
+
+            i=0
+            while [[ ${depth} -ne ${depthCheck} ]] && [[ ${indexCheck} -gt 0 ]] ;
+            do
+              i=$(($i+1))
+              indexCheck=$(( ${indexNo} + ${i} ))
+              depthCheck=$(echo "${indexlistN[ ${indexCheck} ]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+            done
+
+
+            startlineTargetGroup=$(echo "${indexlistN[ $((${indexCheck})) ]}"| cut -d':' -f 1)
+            endlineTargetGroup=$(echo $(( $( echo "${indexlistN[ $((${indexCheck} + 1 )) ]}"| cut -d':' -f 1 ) - 1 )))
+
+
+            startlineHeadGroup='1'
+            endlineHeadGroup=$(( ${startlineSelectGroup} - 1 ))
+
+            startlineFooterGroup=$(( ${endlineTargetGroup} + 1))
+            endlineFooterGroup=$( cat "${inputFile}" | wc -l  )
+
+            echo "${startlineHeadGroup}-${endlineHeadGroup}"
+            echo "${startlineSelectGroup}-${endlineSelectGroup}"
+            echo "${startlineTargetGroup}-${endlineTargetGroup}"
+            echo "${startlineFooterGroup}-${endlineFooterGroup}"
+
+            (
+              cat "${inputFile}" | { head -n "${endlineHeadGroup}" > "${tmpfileH}"; cat >/dev/null;}
+              cat "${inputFile}" | { sed -sn "${startlineTargetGroup},${endlineTargetGroup}p" > "${tmpfileT}"; cat >/dev/null;} 
+              cat "${inputFile}" | { sed -sn "${startlineSelectGroup},${endlineSelectGroup}p" > "${tmpfileB}"; cat >/dev/null;}
+              tail -n +"${startlineFooterGroup}" "${inputFile}" > "${tmpfileF}"
+              wait
+            )
+            (
+              cat "${tmpfileH}" "${tmpfileT}" > "${tmpfile1}"
+              cat "${tmpfileB}" "${tmpfileF}" > "${tmpfile2}"
+              wait
+            )
+            cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
+            ;;
+      *)    echo 'err'
+            read -s -n 1 c
+            ;;
+    esac
+
+    bash "${0}" "${inputFile}" 't'
+    exit 0
+
+  }
 }
 
 : "バックアップ関数" && {
@@ -356,27 +645,20 @@
       return 0
     fi
 
-    needNodeActionList=('e' 'd' 'i' 'f' 'fl' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
-    printf '%s\n' "${needNodeActionList[@]}" | grep -qx "${action}"
-    if [[ ${?} -eq 0 ]] ; then
-      if [[ ${#indexNo} = 0 ]] ; then
-        echo '引数3:対象ノード番号を指定して下さい'
-        read -s -n 1 c
-        bash "${0}" "${inputFile}" 't'
-        return 0
-      fi
-    fi
-
     if [[ -f ${inputFile} ]] && [[ ${#action} = 0 ]] ; then
       bash "${0}" "${inputFile}" 't'
       return 0
     fi
 
+    ######################################
+    #バックアップ作成
+    ######################################
     makeBackupActionList=('e' 'd' 'i' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
     printf '%s\n' "${makeBackupActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -eq 0 ]] ; then
       makeBackup "${inputFile}"
     fi
+
   }
 }
 
@@ -449,7 +731,7 @@
   }
 }
 
-: "HELP表示" && {
+: "ヘルプ表示" && {
   ##############################################################################
   # 引数:なし
   ##############################################################################
@@ -506,16 +788,37 @@
 
     char1="${action:0:1}"
     char2="${action:1:1}"
+    char3="${action:2:1}"
 
     case "${char1}" in
       'h')  displayHelp
             ;;
       't')  displayTree
             ;;
-      'm')  moveNode
+      'm')  case "${char2}" in 
+              [ud]) swapNode
+                    ;;
+              [lr]) slideNode
+                    ;;
+              *)  echo 'err'
+                  ;;
+            esac
+            ;;
+      'g')  case "${char3}" in 
+              [ud]) swapGroup
+                    ;;
+              [lr]) slideGroup
+                    ;;
+              *)  echo 'err'
+                  ;;
+            esac
             ;;
       'f')  focusMode
             ;;
+      'i')  insertNode
+            ;;
+      [edv])  singleNodeOperations
+              ;;
       *) ;;
     esac
   }  
@@ -700,92 +1003,4 @@ trap 'trap - EXIT; rm_tmpfile; exit -1' INT PIPE TERM
 #     fi
 #   fi
 # }
-
-# : "挿入" && {
-#   if [[ ${action} = 'i' ]] ; then
-#     nlString='New Node'
-
-#     readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
-#     maxCnt=${#indexlist[@]}
-
-#     if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
-#       echo "${indexNo}番目のノードは存在しません"
-#       read -s -n 1 c
-#       bash "${0}" "${inputFile}" 't'
-#       exit 0
-#     fi
-    
-#     depth=$(echo "${indexlist[$((indexNo-1))]}" | cut -d: -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
-
-#     firstHalfEndLine=$(($(echo "${indexlist[$((indexNo))]}" | cut -d: -f 1)-1))
-#     secondHalfStartLine=$(($(echo "${indexlist[$((indexNo))]}" | cut -d: -f 1)))
-
-#     dots=$(seq ${depth} | while read -r line; do printf '.'; done)
-#     echo "${dots}${nlString}" > "${tmpfileB}"
-#     cat "${inputFile}" | { head -n "$((firstHalfEndLine))" > "${tmpfileH}"; cat >/dev/null;}
-
-#     if [[ ${indexNo} -eq ${maxCnt} ]] ;then
-#       awk 1 "${inputFile}" "${tmpfileB}" > "${tmpfile1}"
-#       cat "${tmpfile1}" > "${inputFile}"
-
-#     else
-#       cat "${inputFile}" | { tail -n +$((secondHalfStartLine))  > "${tmpfileF}"; cat >/dev/null;}
-#       cat "${tmpfileH}" "${tmpfileB}" "${tmpfileF}" > "${inputFile}"
-#     fi
-
-#     bash "${0}" "${inputFile}" 't'
-#     exit 0
-
-#   fi
-# }
-
-# : "編集・削除・閲覧" && {
-#   if [[ ${action} =~ [edv]$ ]] ; then
-    
-#     readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
-#     maxCnt="${#indexlist[@]}"
-#     startLine=$(echo "${indexlist[$((indexNo-1))]}" | cut -d: -f 1)
-#     endLine=$(echo "${indexlist[((indexNo))]}" | cut -d: -f 1)
-
-#     if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
-#       echo "${indexNo}番目のノードは存在しません"
-#       read -s -n 1 c
-#       bash "${0}" "${inputFile}" 't'
-#       exit 0
-#     else
-#       if [[ ${indexNo} -eq 1 ]]; then
-#         cat "${inputFile}" | { sed -n "1, $((endLine-1))p" > "${tmpfileB}"; cat >/dev/null;}
-#         tail -n +$((endLine)) "${inputFile}" > "${tmpfileF}"
-#       else
-#         if [[ ${indexNo} -eq $maxCnt ]]; then
-#           cat "${inputFile}" | { head -n "$((startLine-1))" > "${tmpfileH}"; cat >/dev/null;}
-#           cat "${inputFile}" | { tail -n +$((startLine))  > "${tmpfileB}"; cat >/dev/null;}
-#           echo '' > "${tmpfileF}"
-#         else
-#           cat "${inputFile}" | { head -n "$((startLine-1))" > "${tmpfileH}"; cat >/dev/null;}
-#           cat "${inputFile}" | { sed -n "$((startLine)), $((endLine-1))p" > "${tmpfileB}"; cat >/dev/null;} 
-#           tail -n +$((endLine)) "${inputFile}" > "${tmpfileF}"
-#         fi
-#       fi
-#     fi
-
-#     case "${action}" in
-#       'e')  "${selected_editor}" "${tmpfileB}"
-#             wait
-#             sed -i -e '$a\' "${tmpfileB}" #編集の結果末尾に改行がない場合'
-#             cat "${tmpfileH}" "${tmpfileB}" "${tmpfileF}" > "${inputFile}"
-#             ;;
-#       'd')  cat "${tmpfileH}" "${tmpfileF}" > "${inputFile}"
-#             ;;
-#       'v')  "${selected_viewer}" "${tmpfileB}"
-#             ;;
-#       *)    echo '不正な引数です。'
-#     esac
-
-#     bash "${0}" "${inputFile}" 't'
-#     exit 0
-
-#   fi
-# }
-
 
