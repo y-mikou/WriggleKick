@@ -3,20 +3,102 @@
 : "ノード検出" && {
   ##############################################################################
   # ノード検出
-  # 入力ファイルのノード構成を検出する
-  # 引数1:対象ファイルパス
-  # 引数2:'mu'
-  # 引数3:対象ノード番号
+  # 入力ファイルのノード構成を検出してグローバル設定する
+  # 今は最大ノード数のみ
+  # 引数:なし(グローバル変数のみ参照)
   # 戻り値:0(成功)/9(失敗)
+  # グローバル変数設定:ツリーのインデクス行配列(indexlist)
+  #                    最大ノード数(maxCnt)
   ##############################################################################
   function detectNode {
     
     readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
 
-    maxCnt="${#indexlist[@]}"
-    tgtLine="$(echo ${indexlist[((indexNo-1))]} | cut -d: -f 1)"
-    replaceFrom="$(echo ${indexlist[((indexNo-1))]} | cut -d: -f 2)"
-    depth=$(echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l)
+    maxCnt=${#indexlist[@]}
+
+  }
+}
+
+: "深さ取得" && {
+  ##############################################################################
+  # 深さ取得
+  # 対象ノードの深さを取得する
+  # 引数1:対象ノード番号
+  # 戻り値:0(成功)/9(失敗)
+  # 標準出力:対象ノードの深さ
+  ##############################################################################
+  function getDepth {
+    
+    selectNode=${1}
+
+    local replaceFrom="$(echo ${indexlist[(( selectNode - 1 ))]} | cut -d: -f 2)"
+    echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l
+
+  }
+}
+
+: "行番号取得" && {
+  ##############################################################################
+  # 行番号取得
+  # ノード番号から、対象ノードの開始行数と終了行数を取得する
+  # 引数1:対象ノード番号
+  # 戻り値:開始行番号,終了行番号
+  ##############################################################################
+  function getLineNo {
+    local selectNodeNo=${1}
+    local startLine=$( echo "${indexlist[((selectNodeNo-1))]}" | cut -d: -f 1 )
+    
+    if [[ ${selectNodeNo} -ne $((maxCnt + 1)) ]] ; then
+      local endLine=$(( $( echo ${indexlist[((selectNodeNo))]} | cut -d: -f 1 ) -1 ))
+    else
+      local endLine=$( wc -l "${inputFile}" )
+    fi
+
+    echo "${startLine} ${endLine}"
+  }
+}
+
+: "タイトル取得" && {
+  ##############################################################################
+  # ノードタイトル取得
+  # 対象ノードのタイトルを取得する
+  # 引数1:対象ノード番号
+  # 戻り値:0(成功)/9(失敗)
+  # 標準出力:対象ノードのタイトル
+  ##############################################################################
+  function getNodeTitle {
+    
+    selectNode=${1}
+
+    local replaceFrom="$(echo ${indexlist[(( selectNode - 1 ))]} | cut -d: -f 2)"
+    echo "${replaceFrom##*.}"
+
+  }
+}
+
+: "選択グループ範囲取得" && {
+  ##############################################################################
+  # 選択ノードの所属するグループの範囲(ノード番号)を取得する
+  # 引数1:対象ノード番号
+  # 戻り値:開始行番号,終了行番号
+  ##############################################################################
+  function getNodeNoInGroup {
+    local selectNodeNo=${1}
+    local selectNoedDepth=$( getDepth ${selectNodeNo} )
+
+    startnodeSelectGroup=${selectNodeNo}
+    endnodeSelectGroup=${maxCnt}
+
+    for i in $( seq $(( ${selectNodeNo} + 1 )) ${maxCnt}) ;
+    do
+      depthCheck=$( getDepth ${i} )
+      if [[ ${depthCheck} -le ${selectNoedDepth} ]] ; then
+        endnodeSelectGroup=$(( ${i} - 1 ))
+        break
+      fi
+    done
+
+    echo "${startnodeSelectGroup} ${endnodeSelectGroup}"
 
   }
 }
@@ -30,28 +112,41 @@
   ##############################################################################
   function displayTree {
 
-    #ノードの検出
-    detectNode
-
+    #ヘッダ表示
     echo "【$(basename ${inputFile})】"
-    if [[ "${action}" == 'tl' ]] ; then 
-      echo 'ノード 行番号    アウトライン'
-      echo '------+--------+------------'
-    else
-      echo 'ノード  アウトライン'
-      echo '------+------------'
-    fi
+    case "${action}" in
+      't')  echo 'ノード  アウトライン'
+            echo '------+------------'
+            ;;
+      'tl') echo 'ノード 行番号    アウトライン'
+            echo '------+--------+------------'
+            ;;
+      'ta') echo 'ノード 行番号            深さ アウトライン'
+            echo '------+--------+--------+---+------------'
+            ;;
+      *)    ;;
+    esac
 
-    seq $((maxCnt)) | {
-      while read -r cnt ; do
-        arrycnt=$((cnt-1))
-        line=$(echo "${indexlist[arrycnt]}" | cut -d: -f 1)
-        depth=$(echo "${indexlist[arrycnt]}" | cut -d: -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+    seq 1 ${maxCnt} | {
+      while read -r cnt || [[ ${cnt} ]] ; do
+        arrycnt=${cnt}
+        startLine=$( getLineNo ${arrycnt} | cut -d' ' -f 1)
+        endLine=$( getLineNo ${arrycnt} | cut -d' ' -f 2)
+        depth=$( getDepth  "${arrycnt}" )
 
-        printf "%06d" "${cnt}"
-        if [[ "${action}" == 'tl' ]] ; then 
-          printf " %08d" "${line}"
-        fi
+        #各種ノード情報表示
+        printf "%06d" "$((arrycnt))"
+        case "${action}" in
+          't')  :
+                ;;
+          'tl') printf " %08d" "${startLine}"
+                ;;
+          'ta') printf " %08d~%08d %03d" ${startLine} ${endLine} ${depth}
+                ;;
+          *)    ;;
+        esac
+
+        #深さ記号
         seq ${depth} | while read -r line; do printf '  '; done
         case "${depth}" in
           '1') printf '📚️ '
@@ -69,11 +164,8 @@
           *) printf '└🗨️ '
               ;;
         esac 
-        #表示時にはノードを示す'.'を消す
-        dots=$(echo "${indexlist[arrycnt]}" | cut -d: -f 2 | grep -oP '^\.+' )
-        title=$(echo "${indexlist[arrycnt]}" | cut -d: -f 2)
-        title="${title#$dots}"
-        echo "${title}"
+        #ノードタイトル
+        getNodeTitle ${arrycnt}
       done
     }
 
@@ -90,21 +182,11 @@
   # 戻り値:0(成功)/9(失敗)
   ##############################################################################
   function focusMode {
-    #ノードの検出
-    detectNode
 
-    for i in $(seq $((${indexNo})) $((${maxCnt}))) ;
-    do
-      depthCheck=$(echo "${indexlist[${i}]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
-      if [[ ${depthCheck} -le ${depth} ]] ; then
-        endnodeSelectGroup=$((${i}))
-        break
-      fi
-    done
+    local selectNoedDepth=$( getDepth ${indexNo} )
 
-    if [[ ${endnodeSelectGroup} -le 0 ]] ; then
-      endnodeSelectGroup="${maxCnt}"
-    fi
+    local startnodeSelectGroup=$(getNodeNoInGroup ${indexNo} | cut -d' ' -f 1)
+    local endnodeSelectGroup=$(getNodeNoInGroup ${indexNo} | cut -d' ' -f 2)
 
     echo "【$(basename ${inputFile})】★ フォーカス表示中"
     if [[ "${action}" == 'fl' ]] ; then 
@@ -164,9 +246,6 @@
   # 戻り値:0(成功)/9(失敗)
   ##############################################################################
   function singleNodeOperations {
-    
-    #ノードの検出
-    detectNode
 
     startLine=$(echo "${indexlist[$((indexNo-1))]}" | cut -d: -f 1)
     endLine=$(echo "${indexlist[((indexNo))]}" | cut -d: -f 1)
@@ -242,20 +321,13 @@
   # 戻り値:0(成功)/9(失敗)
   ##############################################################################
   function slideNode {
+
+    tgtLine=$(getLineNo ${indexNo} | cut -d ' ' -f 1)
+
     case "${char2}" in
-      'l')  if [[ $depth -le 1 ]] ; then
-              echo 'それ以上浅くできません'
-              read -s -n 1 c
-            else
-              sed -i -e "$tgtLine s/^\.\./\./g" ${inputFile}
-            fi
+      'l')  sed -i -e "$tgtLine s/^\.\./\./g" ${inputFile}
             ;;
-      'r')  if [[ $depth -ge 10 ]] ; then
-              echo 'それ以上深くできません'
-              read -s -n 1 c
-            else
-              sed -i -e "$tgtLine s/^/\./g" ${inputFile}
-            fi
+      'r')  sed -i -e "$tgtLine s/^/\./g" ${inputFile}
             ;;
       *)    echo 'err'
             exit 1
@@ -275,89 +347,72 @@
   ##############################################################################
   function swapNode {
     case "${char2}" in
-      'u')  if [[ ${indexNo} -ne 1 ]] ; then
-              indexTargetNode="${indexlistN[ $(( ${indexNo} -2 )) ]}"
-              indexSelectNode="${indexlistN[ $(( ${indexNo} -1 )) ]}"
-              indexNextNode="${indexlistN[   $(( ${indexNo}    )) ]}"
+      'u')  indexTargetNode=$(( ${indexNo} -1 ))
+            indexSelectNode=$(( ${indexNo}    ))
+            indexNextNode=$((   ${indexNo} +1 ))
 
-              endlinePreviousNode=$(( $( echo "${indexTargetNode}" | cut -d: -f 1 ) -1 ))
-              startlineTargetNode=$(( $( echo "${indexTargetNode}" | cut -d: -f 1 )    ))
-              endlineTargetNode=$((   $( echo "${indexSelectNode}" | cut -d: -f 1 ) -1 ))
-              startlineSelectNode=$(( $( echo "${indexSelectNode}" | cut -d: -f 1 )    ))
+            endlinePreviousNode=$(( $( getLineNo ${indexTargetNode} | cut -d' ' -f 1 ) - 1 ))
+            startlineTargetNode=$(     getLineNo ${indexTargetNode} | cut -d' ' -f 1 )
+            endlineTargetNode=$(       getLineNo ${indexTargetNode} | cut -d' ' -f 2 )
+            startlineSelectNode=$( getLineNo ${indexSelectNode} | cut -d' ' -f 1 )
+            endlineSelectNode=$(   getLineNo ${indexSelectNode} | cut -d' ' -f 2 )
 
-              if [[ ${indexNo} -eq ${maxCnt} ]] ; then
-                endlineSelectNode=$(cat "${inputFile}" | wc -l )
-                startlineNextNode=''
-              else
-                endlineSelectNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 ) -1 ))
-                startlineNextNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 )    ))
-              fi
-              
-              (
-                cat "${inputFile}" | { head -n "${endlinePreviousNode}" > "${tmpfileH}"; cat >/dev/null;}
-                cat "${inputFile}" | { sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}"; cat >/dev/null;}
-                cat "${inputFile}" | { sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}"; cat >/dev/null;}
-                if [[ ! ${startlineNextNode} = '' ]] ; then 
-                  tail -n +"${startlineNextNode}" "${inputFile}" > "${tmpfileF}"
-                fi
-                wait
-              )
-              (
-                cat "${tmpfileH}" "${tmpfileB}" > "${tmpfile1}"
-                cat "${tmpfileT}" "${tmpfileF}" > "${tmpfile2}"
-                wait
-              )
-              cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
-
+            if [[ ${indexNo} -eq ${maxCnt} ]] ; then
+              startlineNextNode=''
             else
-
-              echo '1番目のノードは上に移動できません。'
-              read -s -n 1 c
-
+              startlineNextNode=$(   getLineNo ${indexNextNode} | cut -d' ' -f 1 )
             fi
+            
+            (
+              cat "${inputFile}" | { head -n "${endlinePreviousNode}" > "${tmpfileH}"; cat >/dev/null;}
+              cat "${inputFile}" | { sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}"; cat >/dev/null;}
+              cat "${inputFile}" | { sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}"; cat >/dev/null;}
+              if [[ ! ${startlineNextNode} = '' ]] ; then 
+                tail -n +"${startlineNextNode}" "${inputFile}" > "${tmpfileF}"
+              fi
+              wait
+            )
+            (
+              cat "${tmpfileH}" "${tmpfileB}" > "${tmpfile1}"
+              cat "${tmpfileT}" "${tmpfileF}" > "${tmpfile2}"
+              wait
+            )
+            cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
+
             ;;
 
-      'd')  if [[ ${indexNo} -ne ${maxCnt} ]] ; then
+      'd')  indexPreviousNode="${indexlist[ $(( ${indexNo} -2 )) ]}"
+            indexSelectNode="${indexlist[   $(( ${indexNo} -1 )) ]}"
+            indexTargetNode="${indexlist[   $(( ${indexNo}    )) ]}"
+            indexNextNode="${indexlist[     $(( ${indexNo} +1 )) ]}"
+            endlinePreviousNode=$(( $( echo "${indexSelectNode}" | cut -d: -f 1 ) -1 ))
 
-              indexPreviousNode="${indexlistN[ $(( ${indexNo} -2 )) ]}"
-              indexSelectNode="${indexlistN[   $(( ${indexNo} -1 )) ]}"
-              indexTargetNode="${indexlistN[   $(( ${indexNo}    )) ]}"
-              indexNextNode="${indexlistN[     $(( ${indexNo} +1 )) ]}"
-              endlinePreviousNode=$(( $( echo "${indexSelectNode}" | cut -d: -f 1 ) -1 ))
+            startlineSelectNode=$(( $( echo "${indexSelectNode}" | cut -d: -f 1 )    ))
+            endlineSelectNode=$((   $( echo "${indexTargetNode}" | cut -d: -f 1 ) -1 ))
+            startlineTargetNode=$(( $( echo "${indexTargetNode}" | cut -d: -f 1 )    ))
 
-              startlineSelectNode=$(( $( echo "${indexSelectNode}" | cut -d: -f 1 )    ))
-              endlineSelectNode=$((   $( echo "${indexTargetNode}" | cut -d: -f 1 ) -1 ))
-              startlineTargetNode=$(( $( echo "${indexTargetNode}" | cut -d: -f 1 )    ))
-
-              if [[ $((${indexNo}+1)) -eq ${maxCnt} ]] ; then
-                endlineTargetNode=$(cat "${inputFile}" | wc -l )
-              else
-                endlineTargetNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 ) -1 ))
-                startlineNextNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 )    ))
-              fi
-
-              (
-                cat "${inputFile}" | { head -n "${endlinePreviousNode}" > "${tmpfileH}"; cat >/dev/null;}
-                cat "${inputFile}" | { sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}"; cat >/dev/null;} 
-                cat "${inputFile}" | { sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}"; cat >/dev/null;}
-                if [[ ! ${startlineNextNode} = '' ]] ; then 
-                  tail -n +"${startlineNextNode}" "${inputFile}" > "${tmpfileF}"
-                fi
-                wait
-              )
-              (
-                cat "${tmpfileH}" "${tmpfileT}" > "${tmpfile1}"
-                cat "${tmpfileB}" "${tmpfileF}" > "${tmpfile2}"
-                wait
-              )
-              cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
-
+            if [[ $((${indexNo}+1)) -eq ${maxCnt} ]] ; then
+              endlineTargetNode=$(cat "${inputFile}" | wc -l )
             else
-
-              echo '最後のノードは下に移動できません。'
-              read -s -n 1 c
-
+              endlineTargetNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 ) -1 ))
+              startlineNextNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 )    ))
             fi
+
+            (
+              cat "${inputFile}" | { head -n "${endlinePreviousNode}" > "${tmpfileH}"; cat >/dev/null;}
+              cat "${inputFile}" | { sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}"; cat >/dev/null;} 
+              cat "${inputFile}" | { sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}"; cat >/dev/null;}
+              if [[ ! ${startlineNextNode} = '' ]] ; then 
+                tail -n +"${startlineNextNode}" "${inputFile}" > "${tmpfileF}"
+              fi
+              wait
+            )
+            (
+              cat "${tmpfileH}" "${tmpfileT}" > "${tmpfile1}"
+              cat "${tmpfileB}" "${tmpfileF}" > "${tmpfile2}"
+              wait
+            )
+            cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
             ;;
 
       *)    echo 'err'
@@ -376,27 +431,27 @@
   # 戻り値:0(成功)/9(失敗)
   ##############################################################################
   function slideGroup {
-    #ノードの検出
-    detectNode    
 
     startnodeSelectGroup="$(( ${indexNo} -1 ))"
 
-    for i in $(seq $((${indexNo})) $((${maxCnt}))) ;
-    do
-      depthCheck=$(echo "${indexlist[${i}]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
-      if [[ ${depthCheck} -le ${depth} ]] ; then
-        endnodeSelectGroup=$(( ${i} -1 ))
-        break
-      fi
-    done
+    # for i in $(seq $((${indexNo})) $((${maxCnt}))) ;
+    # do
+    #   depthCheck=$(echo "${indexlist[${i}]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
+    #   if [[ ${depthCheck} -le ${depth} ]] ; then
+    #     endnodeSelectGroup=$(( ${i} -1 ))
+    #     break
+    #   fi
+    # done
 
-    startlineSelectGroup=$(echo "${indexlist[ ${startnodeSelectGroup} ]}" | cut -d':' -f 1)
-    if [[ ${endnodeSelectGroup} -ne ${maxCnt} ]] ; then
-      endlineSelectGroup=$(( $(echo "${indexlist[ ${endnodeSelectGroup} ]}" | cut -d':' -f 1) - 1 ))
-    else
-      endlineSelectGroup=$(cat ${inputFile} | wc -l)
-    fi
+    # startlineSelectGroup=$(echo "${indexlist[ ${startnodeSelectGroup} ]}" | cut -d':' -f 1)
+    # if [[ ${endnodeSelectGroup} -ne ${maxCnt} ]] ; then
+    #   endlineSelectGroup=$(( $(echo "${indexlist[ ${endnodeSelectGroup} ]}" | cut -d':' -f 1) - 1 ))
+    # else
+    #   endlineSelectGroup=$(cat ${inputFile} | wc -l)
+    # fi
 
+    getNodeNoInGroup ${indexNo}
+    exit 1
     case "${char3}" in
       'l')  for i in $(seq ${startnodeSelectGroup} ${endnodeSelectGroup}) ;
             do
@@ -428,13 +483,46 @@
   ##############################################################################
   function swapGroup {
     #ノードの検出
-    detectNode
-
-    #動作の想定
 
     ##対象ノードと同じかそれよりも浅いノードが登場するまでに含まれる
     ##対象ノードよりもノード番号が大きい全てのノードを、対象グループとする
+    : "対象グループ情報を取得" && {
 
+      #ノード番号開始と終了
+      ##対象グループ開始ノードは、起動時に指定した対象ノード
+      startnodeSelectGroup="$(( ${indexNo} ))"
+
+      ##対象グループ終了ノードは、
+      ##対象グループ開始ノードと同じ深さかそれより浅いノードが登場するまでノードを下っていき
+      ##その範囲に含まれるノードすべて
+      for i in $(seq $((${indexNo})) $((${maxCnt}))) ;
+      do
+        depthCheck=$( getDepth ${i} )
+        if [[ ${depthCheck} -le ${depth} ]] ; then
+          endnodeSelectGroup=$(( ${i} ))
+          break
+        fi
+      done
+
+      #対象グループ開始ノードの開始行番号を取得し、対象グループ開始行数とする
+      startLineTargetGroup=$(getLineNo ${startnodeSelectGroup} | cut -d' ' -f1)
+
+      #対象グループ終了ノードの終了行番号を取得し、対象グループ終了行数とする
+      endLineTargetGroup=$(getLineNo ${endnodeSelectGroup} | cut -d' ' -f2)
+
+      echo "${startLineTargetGroup}---${endLineTargetGroup}"
+
+    }
+
+    : "目標グループ情報を取得" && {
+      #上移動の場合
+      ##かつ対象ノードが一番上の場合
+      :
+    }
+
+    exit 1
+
+    #動作の想定
     #上移動の場合
     ##対象ノードと同じかそれよりも浅いノードが登場するまでに含まれる
     ##対象ノードよりもノード番号が小さい全てのノードを、目標グループとする
@@ -457,16 +545,6 @@
     
     
 
-    startnodeSelectGroup="$(( ${indexNo} -1 ))"
-
-    for i in $(seq $((${indexNo})) $((${maxCnt}))) ;
-    do
-      depthCheck=$(echo "${indexlist[${i}]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
-      if [[ ${depthCheck} -le ${depth} ]] ; then
-        endnodeSelectGroup=$(( ${i} -1 ))
-        break
-      fi
-    done
 
     startlineSelectGroup=$(echo "${indexlist[ ${startnodeSelectGroup} ]}" | cut -d':' -f 1)
     if [[ ${endnodeSelectGroup} -ne ${maxCnt} ]] ; then
@@ -507,7 +585,7 @@
             echo "${startlineTargetGroup}-${endlineTargetGroup}"
             echo "${startlineSelectGroup}-${endlineSelectGroup}"
             echo "${startlineFooterGroup}-${endlineFooterGroup}"
-exit 1
+            exit 1
 
             (
               cat "${inputFile}" | { head -n "${endlineHeadGroup}" > "${tmpfileH}"; cat >/dev/null;}
@@ -624,8 +702,9 @@ exit 1
   # 初期処理
   ##############################################################################
   function myInit {
-    clear
 
+    #ノード検出
+    detectNode
     #エディタの設定
     #editorList配列の優先順で存在するコマンドに決定される。
     #ユーザによる書き換えも想定
@@ -644,7 +723,7 @@ exit 1
     #ビューワの設定
     #viewerList配列の優先順で存在するコマンドに決定される。
     #ユーザによる書き換えも想定
-    #(selected_viewer部分を任意のビューワ起動コマンドに変更。エディタを設定しても良い)
+    #(selected_viewer部分を任意のビューワ起動コマンドに変更)
     viewerList=('selected_viewer' 'less' 'more' 'view' 'cat')
                 #^^^^^^^^^^^^^^^edit here
     for itemV in "${viewerList[@]}" ; do
@@ -697,7 +776,9 @@ exit 1
   # 戻り値:0(成功)/9(失敗)
   ##############################################################################
   function parameterCheck {
- 
+    
+    local depth=$(getDepth ${indexNo})
+
     #対象ファイルの存在チェック
     if [[ ! -f ${inputFile} ]] ; then
       echo "${inputFile} なんてファイルないです"
@@ -706,7 +787,7 @@ exit 1
     fi
 
     #動作指定のチェック
-    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'f' 'fl' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -ne 0 ]] ; then
       echo '引数2:無効なアクションです'
@@ -714,16 +795,55 @@ exit 1
       return 1
     fi
 
-    needTgtActionList=('e' 'd' 'i' 'f' 'fl' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
-    printf '%s\n' "${needTgtActionList[@]}" | grep -qx "${action}"
+    unset allowActionList
+    allowActionList=('e' 'd' 'i' 'f' 'fl' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+    printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -eq 0 ]] ; then
-      detectNode
       if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
         echo "${indexNo}番目のノードは存在しません"
         read -s -n 1 c
         return 1
       fi
     fi
+
+    #動作指定とノード番号のチェック(ノード状態の取得が必要なチェックは後続で実施)
+    unset allowActionList
+    allowActionList=('ml' 'gml')
+    printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
+    if [[ ${?} -eq 0 ]] && [[ ${depth} -le 1 ]] ; then
+      echo "ノード番号${indexNo}はこれ以上浅く(左に移動)できません"
+      read -s -n 1 c
+      return 1
+    fi
+
+    unset allowActionList
+    allowActionList=('mr' 'gmr')
+    printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
+    if [[ ${?} -eq 0 ]] && [[ ${depth} -ge 10 ]] ; then
+      echo "ノード番号${indexNo}の深さは${depth}です。これ以上深く(右に移動)できません"
+      read -s -n 1 c
+      return 1
+    fi
+
+    unset allowActionList
+    allowActionList=('mu' 'gmu')
+    printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
+    if [[ ${?} -eq 0 ]] && [[ ${indexNo} -eq 1 ]] ; then
+      echo '引数2:1番目のノードは上に移動できません'
+      read -s -n 1 c
+      return 1
+    fi
+
+    unset allowActionList
+    allowActionList=('md' 'gmd')
+    printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
+    if [[ ${?} -eq 0 ]] && [[ ${indexNo} -ge ${maxCnt} ]] ; then
+      echo "引数2:${indexNo}番目のノードは下に移動できません"
+      read -s -n 1 c
+      return 1
+    fi
+
+
   }
 }
 
@@ -802,13 +922,14 @@ exit 1
     action="${2}"
     indexNo=${3}
 
+    myInit                      # 初期処理
+
     #パラメータチェック
     parameterCheck
-    if [[ ${?} != 0 ]] ; then 
+    if [[ ${?} -ne 0 ]] ; then 
       exit 1
     fi
 
-    myInit                      # 初期処理
     makeBackup "${inputFile}" 3 # バックアップ作成。今のところ3世代固定
     makeTmpfile                 # 一時ファイルを作成
     #displayHelp                 # ヘルプ表示
@@ -816,6 +937,8 @@ exit 1
     char1="${action:0:1}"
     char2="${action:1:1}"
     char3="${action:2:1}"
+
+    clear
 
     case "${char1}" in
       'h')  displayHelp

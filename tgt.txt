@@ -9,15 +9,15 @@ aaaananika
 ｓ
 ４５６
 
+....node1-2
+aaaananika
+aaaananika
+sss
 ....node1-1
 こまかい
 ｓｓ
 ｓｓ
 ｓ
-....node1-2
-aaaananika
-aaaananika
-sss
 ...node2
 
 っっっｓ
@@ -46,15 +46,15 @@ ssss
 sss
 ....depth5
 ddddddddddddddddddd
+......depth7
+fsdfs
+..New Node
 .....depth6
 dcsfds
 sdffsdf
 dsfdf
 
-......depth7
-fsdfs
 .......New Node
-..New Node
 ...depth9
 sdffsdf
 dsfdf
@@ -69,9 +69,3 @@ dsf
 
 
 dcsfdsf
-
-dsf
-
-....New Node
-
-dsfdsf
