@@ -48,7 +48,7 @@
     local selectNodeNo=${1}
     local startLine=$( echo "${indexlist[((selectNodeNo-1))]}" | cut -d: -f 1 )
     
-    if [[ ${selectNodeNo} -ne $((maxCnt + 1)) ]] ; then
+    if [[ ${selectNodeNo} -ne $((maxCnt)) ]] ; then
       local endLine=$(( $( echo ${indexlist[((selectNodeNo))]} | cut -d: -f 1 ) -1 ))
     else
       local endLine=$( wc -l "${inputFile}" )
@@ -294,19 +294,21 @@
     detectNode
 
     nlString='New Node'
-    firstHalfEndLine=$(($(echo "${indexlist[$((indexNo))]}" | cut -d: -f 1)-1))
-    secondHalfStartLine=$(($(echo "${indexlist[$((indexNo))]}" | cut -d: -f 1)))
+    endlinePreviousNode=$( getLineNo $(( ${indexNo} -1 )) | cut -d' ' -f 2 )
+    startlineNextNode=$(   getLineNo ${indexNo} | cut -d' ' -f 1 )
 
+    depth=$( getDepth ${indexNo} )
     dots=$(seq ${depth} | while read -r line; do printf '.'; done)
+
     echo "${dots}${nlString}" > "${tmpfileB}"
-    cat "${inputFile}" | { head -n "$((firstHalfEndLine))" > "${tmpfileH}"; cat >/dev/null;}
+    cat "${inputFile}" | { head -n ${endlinePreviousNode} > "${tmpfileH}"; cat >/dev/null;}
 
     if [[ ${indexNo} -eq ${maxCnt} ]] ;then
       awk 1 "${inputFile}" "${tmpfileB}" > "${tmpfile1}"
       cat "${tmpfile1}" > "${inputFile}"
 
     else
-      cat "${inputFile}" | { tail -n +$((secondHalfStartLine))  > "${tmpfileF}"; cat >/dev/null;}
+      cat "${inputFile}" | { tail -n +${startlineNextNode}  > "${tmpfileF}"; cat >/dev/null;}
       cat "${tmpfileH}" "${tmpfileB}" "${tmpfileF}" > "${inputFile}"
     fi
 
@@ -381,25 +383,28 @@
 
             ;;
 
-      'd')  indexPreviousNode="${indexlist[ $(( ${indexNo} -2 )) ]}"
-            indexSelectNode="${indexlist[   $(( ${indexNo} -1 )) ]}"
-            indexTargetNode="${indexlist[   $(( ${indexNo}    )) ]}"
-            indexNextNode="${indexlist[     $(( ${indexNo} +1 )) ]}"
-            endlinePreviousNode=$(( $( echo "${indexSelectNode}" | cut -d: -f 1 ) -1 ))
+      'd')  indexPreviousNode=$(( ${indexNo} -1 ))
+            indexTargetNode=$((   ${indexNo} +1 ))
+            indexSelectNode=$((   ${indexNo}    ))
+            indexNextNode=$((     ${indexNo} +2 ))
+            
+            endlinePreviousNode=$( getLineNo ${indexPreviousNode} | cut -d' ' -f 2 )
+            startlineSelectNode=$( getLineNo ${indexSelectNode}   | cut -d' ' -f 1 )
+            endlineSelectNode=$(   getLineNo ${indexSelectNode}   | cut -d' ' -f 2 )
+            startlineTargetNode=$( getLineNo ${indexTargetNode}   | cut -d' ' -f 1 )
 
-            startlineSelectNode=$(( $( echo "${indexSelectNode}" | cut -d: -f 1 )    ))
-            endlineSelectNode=$((   $( echo "${indexTargetNode}" | cut -d: -f 1 ) -1 ))
-            startlineTargetNode=$(( $( echo "${indexTargetNode}" | cut -d: -f 1 )    ))
-
-            if [[ $((${indexNo}+1)) -eq ${maxCnt} ]] ; then
+            if [[ ${indexNo} -eq ${maxCnt} ]] ; then
               endlineTargetNode=$(cat "${inputFile}" | wc -l )
             else
-              endlineTargetNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 ) -1 ))
-              startlineNextNode=$((   $( echo "${indexNextNode}"   | cut -d: -f 1 )    ))
+              endlineTargetNode=$( getLineNo ${indexTargetNode} | cut -d' ' -f 2 )
+              startlineNextNode=$( getLineNo ${indexNextNode}   | cut -d' ' -f 1 )
             fi
-
             (
-              cat "${inputFile}" | { head -n "${endlinePreviousNode}" > "${tmpfileH}"; cat >/dev/null;}
+              if [[ ${indexNo} -eq 1 ]] ; then
+                echo '' > "${tmpfileH}"
+              else
+                cat "${inputFile}" | { head -n "${endlinePreviousNode}" > "${tmpfileH}"; cat >/dev/null;}
+              fi
               cat "${inputFile}" | { sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}"; cat >/dev/null;} 
               cat "${inputFile}" | { sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}"; cat >/dev/null;}
               if [[ ! ${startlineNextNode} = '' ]] ; then 

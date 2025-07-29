@@ -1,3 +1,4 @@
+
 .title
 タイトルだよne3
 ああ
@@ -49,23 +50,18 @@ ddddddddddddddddddd
 ......depth7
 fsdfs
 ..New Node
-.....depth6
-dcsfds
-sdffsdf
-dsfdf
-
-.......New Node
 ...depth9
 sdffsdf
 dsfdf
 
 ....New Node15
 desu
-..depth2-2
+.....depth6
+dcsfds
+sdffsdf
+dsfdf
 
-dsf
-...depth10
+.......New Node
+..New Node
+...New Node
 
-
-
-dcsfdsf
