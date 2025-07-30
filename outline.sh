@@ -37,12 +37,12 @@
   }
 }
 
-: "行番号取得" && {
+: "ノード行範囲取得" && {
   ##############################################################################
   # 行番号取得
   # ノード番号から、対象ノードの開始行数と終了行数を取得する
   # 引数1:対象ノード番号
-  # 戻り値:開始行番号,終了行番号
+  # 戻り値:開始行番号 終了行番号
   ##############################################################################
   function getLineNo {
     local selectNodeNo=${1}
@@ -55,6 +55,7 @@
     fi
 
     echo "${startLine} ${endLine}"
+
   }
 }
 
@@ -63,7 +64,6 @@
   # ノードタイトル取得
   # 対象ノードのタイトルを取得する
   # 引数1:対象ノード番号
-  # 引数2:モード　'':タイトルのみ　2:.など他の情報も残す
   # 戻り値:0(成功)/9(失敗)
   # 標準出力:対象ノードのタイトル
   ##############################################################################
@@ -131,13 +131,12 @@
 
     seq 1 ${maxCnt} | {
       while read -r cnt || [[ ${cnt} ]] ; do
-        arrycnt=${cnt}
-        startLine=$( getLineNo ${arrycnt} | cut -d' ' -f 1)
-        endLine=$( getLineNo ${arrycnt} | cut -d' ' -f 2)
-        depth=$( getDepth  "${arrycnt}" )
+        startLine=$( getLineNo ${cnt} | cut -d ' ' -f 1 )
+        endLine=$( getLineNo ${cnt} | cut -d ' ' -f 2 )
+        depth=$( getDepth  ${cnt} )
 
         #各種ノード情報表示
-        printf "%06d" "$((arrycnt))"
+        printf "%06d" "$((cnt))"
         case "${action}" in
           't')  :
                 ;;
@@ -167,7 +166,7 @@
               ;;
         esac 
         #ノードタイトル
-        getNodeTitle ${arrycnt}
+        getNodeTitle ${cnt}
       done
     }
 
