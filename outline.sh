@@ -63,14 +63,16 @@
   # ノードタイトル取得
   # 対象ノードのタイトルを取得する
   # 引数1:対象ノード番号
+  # 引数2:モード　'':タイトルのみ　2:.など他の情報も残す
   # 戻り値:0(成功)/9(失敗)
   # 標準出力:対象ノードのタイトル
   ##############################################################################
   function getNodeTitle {
     
-    selectNode=${1}
+    local selectNode=${1}
 
     local replaceFrom="$(echo ${indexlist[(( selectNode - 1 ))]} | cut -d: -f 2)"
+
     echo "${replaceFrom##*.}"
 
   }
@@ -437,37 +439,20 @@
   ##############################################################################
   function slideGroup {
 
-    startnodeSelectGroup="$(( ${indexNo} -1 ))"
+    local startnodeSelectGroup=$( getNodeNoInGroup ${indexNo} | cut -d' ' -f 1 )
+    local endnodeSelectGroup=$(   getNodeNoInGroup ${indexNo} | cut -d' ' -f 2 )
 
-    # for i in $(seq $((${indexNo})) $((${maxCnt}))) ;
-    # do
-    #   depthCheck=$(echo "${indexlist[${i}]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
-    #   if [[ ${depthCheck} -le ${depth} ]] ; then
-    #     endnodeSelectGroup=$(( ${i} -1 ))
-    #     break
-    #   fi
-    # done
-
-    # startlineSelectGroup=$(echo "${indexlist[ ${startnodeSelectGroup} ]}" | cut -d':' -f 1)
-    # if [[ ${endnodeSelectGroup} -ne ${maxCnt} ]] ; then
-    #   endlineSelectGroup=$(( $(echo "${indexlist[ ${endnodeSelectGroup} ]}" | cut -d':' -f 1) - 1 ))
-    # else
-    #   endlineSelectGroup=$(cat ${inputFile} | wc -l)
-    # fi
-
-    getNodeNoInGroup ${indexNo}
-    exit 1
     case "${char3}" in
       'l')  for i in $(seq ${startnodeSelectGroup} ${endnodeSelectGroup}) ;
             do
-              tgtLine=$(echo "${indexlist[$i]}" | cut -d: -f 1)
-              sed -i -e "${tgtLine} s/^\.\./\./g" ${inputFile}
+              tgtLine="$( getLineNo ${i} | cut -d' ' -f 1 )"
+              sed -i -e "${tgtLine} s/^\.\./\./g" "${inputFile}"
             done
             ;;
       'r')  for i in $(seq ${startnodeSelectGroup} ${endnodeSelectGroup}) ;
             do
-              tgtLine=$(echo "${indexlist[$i]}" | cut -d: -f 1)
-              sed -i -e "${tgtLine} s/^\./\.\./g" ${inputFile}
+              tgtLine="$( getLineNo ${i} | cut -d' ' -f 1 )"
+              sed -i -e "${tgtLine} s/^\./\.\./g" "${inputFile}"
             done
             ;;
       *)    echo 'err'
