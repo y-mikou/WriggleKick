@@ -6,13 +6,13 @@
   # 入力ファイルのノード構成を検出してグローバル設定する
   # 今は最大ノード数のみ
   # 引数:なし(グローバル変数のみ参照)
-  # グローバル変数設定:最大ノード数(maxCnt)
+  # グローバル変数設定:最大ノード数(maxNodeCnt)
   ##############################################################################
   function detectNode {
     
     readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
 
-    maxCnt="${#indexlist[@]}"
+    maxNodeCnt="${#indexlist[@]}"
 
   }
 }
@@ -47,7 +47,7 @@
     local mode="${2}"
     local startLine="$( echo "${indexlist[((selectNodeNo-1))]}" | cut -d: -f 1 )"
  
-    if [[ ${selectNodeNo} -ne $((maxCnt)) ]] ; then
+    if [[ ${selectNodeNo} -ne $((maxNodeCnt)) ]] ; then
       local endLine="$(( $( echo ${indexlist[((selectNodeNo))]} | cut -d: -f 1 ) -1 ))"
     else
       local endLine="$( cat "${inputFile}" | wc -l  )"
@@ -94,9 +94,9 @@
     local selectNoedDepth="$( getDepth ${selectNodeNo} )"
 
     startnodeSelectGroup="${selectNodeNo}"
-    endnodeSelectGroup="${maxCnt}"
+    endnodeSelectGroup="${maxNodeCnt}"
 
-    for i in $( seq "$(( ${selectNodeNo} + 1 ))" "${maxCnt}") ;
+    for i in $( seq "$(( ${selectNodeNo} + 1 ))" "${maxNodeCnt}") ;
     do
       depthCheck="$( getDepth ${i} )"
       if [[ ${depthCheck} -le ${selectNoedDepth} ]] ; then
@@ -125,7 +125,7 @@
   # 先頭から末尾を指定してツリービューを呼び出すラッパー
   ##############################################################################
   function displayTree {
-    tree 1 "${maxCnt}"
+    tree 1 "${maxNodeCnt}"
   }
 
   ##############################################################################
@@ -230,7 +230,7 @@
       cat "${inputFile}" | { sed -n "1, $((endLine-1))p" > "${tmpfileB}"; cat >/dev/null;}
       tail -n +$((endLine)) "${inputFile}" > "${tmpfileF}"
     else
-      if [[ ${indexNo} -eq $maxCnt ]]; then
+      if [[ ${indexNo} -eq $maxNodeCnt ]]; then
         cat "${inputFile}" | { head -n "$((startLine-1))" > "${tmpfileH}"; cat >/dev/null;}
         cat "${inputFile}" | { tail -n +$((startLine))  > "${tmpfileB}"; cat >/dev/null;}
         echo '' > "${tmpfileF}"
@@ -279,7 +279,7 @@
     echo "${dots}${nlString}" > "${tmpfileB}"
     cat "${inputFile}" | { head -n "${endlinePreviousNode}" > "${tmpfileH}"; cat >/dev/null;}
 
-    if [[ ${indexNo} -eq ${maxCnt} ]] ;then
+    if [[ ${indexNo} -eq ${maxNodeCnt} ]] ;then
       awk 1 "${inputFile}" "${tmpfileB}" > "${tmpfile1}"
       cat "${tmpfile1}" > "${inputFile}"
 
@@ -335,7 +335,7 @@
             startlineSelectNode="$( getLineNo ${indexSelectNode} 1 )"
             endlineSelectNode="$(   getLineNo ${indexSelectNode} 1 )"
 
-            if [[ ${indexNo} -eq ${maxCnt} ]] ; then
+            if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
               startlineNextNode=''
             else
               startlineNextNode="$( getLineNo ${indexNextNode} 1 )"
@@ -369,7 +369,7 @@
             endlineSelectNode="$(   getLineNo ${indexSelectNode}   9 )"
             startlineTargetNode="$( getLineNo ${indexTargetNode}   1 )"
 
-            if [[ ${indexNo} -eq ${maxCnt} ]] ; then
+            if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
               endlineTargetNode="$(cat "${inputFile}" | wc -l )"
             else
               endlineTargetNode="$( getLineNo ${indexTargetNode} 9 )"
@@ -459,7 +459,7 @@
       ##対象グループ終了ノードは、
       ##対象グループ開始ノードと同じ深さかそれより浅いノードが登場するまでノードを下っていき
       ##その範囲に含まれるノードすべて
-      for i in $(seq "${indexNo}" "${maxCnt}") ;
+      for i in $(seq "${indexNo}" "${maxNodeCnt}") ;
       do
         depthCheck="$( getDepth ${i} )"
         if [[ ${depthCheck} -le ${depth} ]] ; then
@@ -511,7 +511,7 @@
 
 
     startlineSelectGroup=$(echo "${indexlist[ ${startnodeSelectGroup} ]}" | cut -d':' -f 1)
-    if [[ ${endnodeSelectGroup} -ne ${maxCnt} ]] ; then
+    if [[ ${endnodeSelectGroup} -ne ${maxNodeCnt} ]] ; then
       endlineSelectGroup=$(( $(echo "${indexlist[ ${endnodeSelectGroup} ]}" | cut -d':' -f 1) - 1 ))
     else
       endlineSelectGroup=$(cat ${inputFile} | wc -l)
@@ -540,7 +540,7 @@
             startlineHeadGroup='1'
             endlineHeadGroup=$(( ${startlineTargetGroup} - 1 ))
 
-            if [[ ${endnodeSelectGroup} -ne ${maxCnt} ]] ; then
+            if [[ ${endnodeSelectGroup} -ne ${maxNodeCnt} ]] ; then
               startlineFooterGroup=$(( ${endlineSelectGroup} + 1))
               endlineFooterGroup=$( cat "${inputFile}" | wc -l  )
             fi
@@ -556,14 +556,14 @@
               cat "${inputFile}" | { sed -sn "${startlineSelectGroup},${endlineSelectGroup}p" > "${tmpfileT}"; cat >/dev/null;} 
               cat "${inputFile}" | { sed -sn "${startlineTargetGroup},${endlineTargetGroup}p" > "${tmpfileB}"; cat >/dev/null;}
 
-              if [[ ${endnodeSelectGroup} -ne ${maxCnt} ]] ; then
+              if [[ ${endnodeSelectGroup} -ne ${maxNodeCnt} ]] ; then
                 tail -n +"${startlineFooterGroup}" "${inputFile}" > "${tmpfileF}"
               fi
               wait
             )
             (
               cat "${tmpfileH}" "${tmpfileT}" > "${tmpfile1}"
-              if [[ ${endnodeSelectGroup} -ne ${maxCnt} ]] ; then
+              if [[ ${endnodeSelectGroup} -ne ${maxNodeCnt} ]] ; then
                 cat "${tmpfileB}" "${tmpfileF}" > "${tmpfile2}"
               else
                 cat "${tmpfileB}" > "${tmpfile2}"
@@ -764,7 +764,7 @@
     allowActionList=(9 'd' 'i' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -eq 0 ]] ; then
-      if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxCnt} ]] ; then
+      if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxNodeCnt} ]] ; then
         echo "${indexNo}番目のノードは存在しません"
         read -s -n 1 c
         return 1
@@ -802,7 +802,7 @@
     unset allowActionList
     allowActionList=('md' 'gmd')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
-    if [[ ${?} -eq 0 ]] && [[ ${indexNo} -ge ${maxCnt} ]] ; then
+    if [[ ${?} -eq 0 ]] && [[ ${indexNo} -ge ${maxNodeCnt} ]] ; then
       echo "引数2:${indexNo}番目のノードは下に移動できません"
       read -s -n 1 c
       return 1
