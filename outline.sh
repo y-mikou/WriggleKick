@@ -40,7 +40,9 @@
   # ノード番号から、対象ノードの開始行数と終了行数を取得する
   # 引数1:対象ノード番号
   # 引数2:出力する行の種類　1:開始行番号を出力/9:終了行番号を出力
-  # 標準出力:開始行番号 終了行番号
+  # 標準出力:引数2が1……開始行番号
+  #               2……終了行番号
+  #               なし、もしくはそれ以外……開始行番号 終了行番号
   ##############################################################################
   function getLineNo {
     local selectNodeNo=${1}
@@ -86,7 +88,9 @@
   # 選択ノードの所属するグループの範囲(ノード番号)を取得する
   # 引数1:対象ノード番号
   # 引数2:出力する行の種類　1:開始行番号を出力/9:終了行番号を出力
-  # 戻り値:開始行番号,終了行番号
+  # 標準出力:引数2が1……開始行番号
+  #               2……終了行番号
+  #               なし、もしくはそれ以外……開始行番号 終了行番号
   ##############################################################################
   function getNodeNoInGroup {
     local selectNodeNo="${1}"
@@ -111,10 +115,66 @@
       9) echo  "${endnodeSelectGroup}" ;;
       *) echo  "${startnodeSelectGroup} ${endnodeSelectGroup}" ;;
     esac
+  }
+
+  ##############################################################################
+  # 選択ノードのと同じ深さかそれより浅い、上/下のノード番号を取得する
+  # 引数1:対象ノード番号
+  # 引数2:方向　u:上/d:下
+  # 戻り値:（ないとき）e
+  # 標準出力:ノード番号
+  ##############################################################################
+  function getSameDepthNode {
+    local direction="${1}"
 
 
+
+    if [[]] ; then
+      echo "${nodeNo}"
+    else
+      echo ''
+      return e
+    fi
+  }
+
+  ##############################################################################
+  # 選択ノードの所属するグループの一つ上のグループの範囲(ノード番号)を取得する
+  # 引数1:対象ノード番号
+  # 引数2:出力する行の種類　1:開始行番号を出力/9:終了行番号を出力
+  # 戻り値:（グループがないとき）e
+  # 標準出力:引数2が1……開始行番号
+  #               2……終了行番号
+  #               なし、もしくはそれ以外……開始行番号 終了行番号
+  ##############################################################################
+  function getPreviouseNodeNoInGroup {
+    local selectNodeNo="${1}"
+    local mode="${2}"
+    local selectNoedDepth="$( getDepth ${selectNodeNo} )"
+
+    startnodeSelectGroup="${selectNodeNo}"
+    endnodeSelectGroup="${maxNodeCnt}"
+
+    for i in $( seq "$(( ${selectNodeNo} + 1 ))" "${maxNodeCnt}") ;
+    do
+      depthCheck="$( getDepth ${i} )"
+      if [[ ${depthCheck} -le ${selectNoedDepth} ]] ; then
+        endnodeSelectGroup="$(( ${i} - 1 ))"
+        break
+      fi
+    done
+
+
+
+    case "${mode}" in
+      '') echo "${startnodeSelectGroup} ${endnodeSelectGroup}" ;;
+      1) echo  "${startnodeSelectGroup}" ;;
+      9) echo  "${endnodeSelectGroup}" ;;
+      *) echo  "${startnodeSelectGroup} ${endnodeSelectGroup}" ;;
+    esac
   }
 }
+
+
 
 : "ツリー表示系" && {
   ##############################################################################
