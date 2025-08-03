@@ -1,4 +1,4 @@
-##!/bin/bash
+#!/bin/bash
 
 : "ノード検出" && {
   ##############################################################################
@@ -45,7 +45,7 @@
   #               なし、もしくはそれ以外……開始行番号 終了行番号
   ##############################################################################
   function getLineNo {
-    local selectNodeNo=${1}
+    local selectNodeNo="${1}"
     local mode="${2}"
     local startLine="$( echo "${indexlist[((selectNodeNo-1))]}" | cut -d: -f 1 )"
  
@@ -83,7 +83,7 @@
   }
 }
 
-: "選択グループ範囲取得" && {
+: "グループ範囲取得系" && {
   ##############################################################################
   # 選択ノードの所属するグループの範囲(ノード番号)を取得する
   # 引数1:対象ノード番号
@@ -118,63 +118,62 @@
   }
 
   ##############################################################################
-  # 選択ノードのと同じ深さかそれより浅い、上/下のノード番号を取得する
+  # 選択ノードの所属するグループの一つ上/下のグループの範囲(ノード番号)を取得する
   # 引数1:対象ノード番号
   # 引数2:方向　u:上/d:下
-  # 戻り値:（ないとき）e
-  # 標準出力:ノード番号
-  ##############################################################################
-  function getSameDepthNode {
-    local direction="${1}"
-
-
-
-    if [[]] ; then
-      echo "${nodeNo}"
-    else
-      echo ''
-      return e
-    fi
-  }
-
-  ##############################################################################
-  # 選択ノードの所属するグループの一つ上のグループの範囲(ノード番号)を取得する
-  # 引数1:対象ノード番号
-  # 引数2:出力する行の種類　1:開始行番号を出力/9:終了行番号を出力
+  # 引数3:出力する行の種類　1:開始行番号を出力/9:終了行番号を出力
   # 戻り値:（グループがないとき）e
   # 標準出力:引数2が1……開始行番号
   #               2……終了行番号
   #               なし、もしくはそれ以外……開始行番号 終了行番号
   ##############################################################################
-  function getPreviouseNodeNoInGroup {
+  function getTargetNodeNoInGroup {
     local selectNodeNo="${1}"
-    local mode="${2}"
-    local selectNoedDepth="$( getDepth ${selectNodeNo} )"
+    local direction="${2}"
+    local mode="${3}"
+    local selectNodeDepth="$( getDepth ${selectNodeNo} )"
 
-    startnodeSelectGroup="${selectNodeNo}"
-    endnodeSelectGroup="${maxNodeCnt}"
+    case "${direction}" in
+      '')   local inc=1
+            local goal="${maxNodeCnt}"
+            ;;
+      [uU]) local inc=-1
+            local goal=1
+            ;;
+      [dD]) local inc=1
+            local goal="${maxNodeCnt}"
+            ;;
+      *)    local inc=1
+            local goal=1
+            ;;
+    esac
 
-    for i in $( seq "$(( ${selectNodeNo} + 1 ))" "${maxNodeCnt}") ;
+    for i in $( seq $(( "${selectNode}" + "${inc}" )) "${inc}" "${goal}" ) ;
     do
-      depthCheck="$( getDepth ${i} )"
-      if [[ ${depthCheck} -le ${selectNoedDepth} ]] ; then
-        endnodeSelectGroup="$(( ${i} - 1 ))"
+      depth="$( getDepth ${i} )"
+      if [[ ${depth} -le ${selectNodeDepth} ]] ; then
+        returnNodeNo="${i}"
         break
       fi
     done
 
+    if [[ ${depth} -ne ${selectNodeDepth} ]] ; then
+      returnNodeNo=''
+      exit 100
+    fi
 
+    local TargetGroupFromTo="$(getNodeNoInGroup ${returnNodeNo} '' )"
+    local startnodeTargetGroup="$( echo ${TargetGroupFromTo} | cut -d ' ' -f 1 )"
+    local endnodeTargetGroup="$( echo ${TargetGroupFromTo} | cut -d ' ' -f 2 )"
 
     case "${mode}" in
-      '') echo "${startnodeSelectGroup} ${endnodeSelectGroup}" ;;
-      1) echo  "${startnodeSelectGroup}" ;;
-      9) echo  "${endnodeSelectGroup}" ;;
-      *) echo  "${startnodeSelectGroup} ${endnodeSelectGroup}" ;;
+      '') echo "${startnodeTargetGroup} ${endnodeTargetGroup}" ;;
+      1) echo  "${startnodeTargetGroup}" ;;
+      9) echo  "${endnodeTargetGroup}" ;;
+      *) echo  "${startnodeTargetGroup} ${endnodeTargetGroup}" ;;
     esac
   }
 }
-
-
 
 : "ツリー表示系" && {
   ##############################################################################
@@ -197,8 +196,9 @@
   ##############################################################################
   function focusMode {
 
-    local startnodeSelectGroup="$(getNodeNoInGroup ${indexNo} 1 )"
-    local endnodeSelectGroup="$(getNodeNoInGroup ${indexNo} 9 )"
+    local SelectGroupNodeFromTo="$(getNodeNoInGroup ${indexNo} '' )"
+    local startnodeSelectGroup="$( echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 1 )"
+    local endnodeSelectGroup="$( echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 2 )"
     tree "${startnodeSelectGroup}" "${endnodeSelectGroup}"
   }
 
@@ -215,7 +215,13 @@
     local startnodeSelectGroup="${1}"
     local endnodeSelectGroup="${2}"
 
-    echo "【$(basename ${inputFile})】★ フォーカス表示中"
+    printf "【$(basename ${inputFile})】"
+    case "${char1}" in
+      't')  echo '';;
+      'f')  echo " ★ フォーカス表示中";;
+      *)    echo '';;
+    esac
+
     case "${char2}" in
       '')  echo 'ノード  アウトライン'
             echo '------+------------'
@@ -506,7 +512,8 @@
   # 戻り値:0(成功)/9(失敗)
   ##############################################################################
   function swapGroup {
-    #ノードの検出
+
+    local direction="${char3}"
 
     ##対象ノードと同じかそれよりも浅いノードが登場するまでに含まれる
     ##対象ノードよりもノード番号が大きい全てのノードを、対象グループとする
@@ -514,34 +521,49 @@
 
       #ノード番号開始と終了
       ##対象グループ開始ノードは、起動時に指定した対象ノード
-      startnodeSelectGroup="$(( ${indexNo} ))"
+      local selectNode="${indexNo}"
+      local selectNodeDepth="$( getDepth ${indexNo} )"
 
       ##対象グループ終了ノードは、
       ##対象グループ開始ノードと同じ深さかそれより浅いノードが登場するまでノードを下っていき
       ##その範囲に含まれるノードすべて
-      for i in $(seq "${indexNo}" "${maxNodeCnt}") ;
+      for i in $( seq "$((${indexNo} +1 ))" "${maxNodeCnt}" ) ;
       do
         depthCheck="$( getDepth ${i} )"
-        if [[ ${depthCheck} -le ${depth} ]] ; then
+        if [[ ${depthCheck} -le ${selectNodeDepth} ]] ; then
           endnodeSelectGroup="${i}"
           break
         fi
       done
 
-      #対象グループ開始ノードの開始行番号を取得し、対象グループ開始行数とする
-      startLineTargetGroup="$(getLineNo ${startnodeSelectGroup} 1 )"
+      #選択グループ開始/終了ノードの開始/終了行番号を取得し、選択グループ開始/終了行数とする
+      local startLineSelectGroup="$(getLineNo ${selectNode} 1 )"
 
-      #対象グループ終了ノードの終了行番号を取得し、対象グループ終了行数とする
-      endLineTargetGroup="$(getLineNo ${endnodeSelectGroup} 9 )"
+      if [[ -n "${endnodeSelectGroup}" ]] ; then
+        local endLineSelectGroup="$(getLineNo ${endnodeSelectGroup} 9 )"
+      else
+        local endLineSelectGroup="$(getLineNo ${maxNodeCnt} 9 )"
+      fi
 
-      echo "${startLineTargetGroup}---${endLineTargetGroup}"
+      echo "選択グループ:${startLineSelectGroup}-${endLineSelectGroup}"
 
     }
 
-    : "目標グループ情報を取得" && {
+    : "移動先グループ情報を取得" && {
       #上移動の場合
       ##かつ対象ノードが一番上の場合
-      :
+      local TargetNodeLineFromTo="$(getTargetNodeNoInGroup "${indexNo}" "${direction}" '' )" 
+      if [[ "${?}" -ne 0 ]] ; then
+        echo '交換移動可能なグループがありません'
+        read -s -n 1 c
+        bash "${0}" "${inputFile}" 't'
+      else 
+        local TargetNodeLineFrom="$( echo ${TargetNodeLineFromTo} | cut -d ' ' -f 1 )" 
+        local TargetNodeLineTo="$( echo ${TargetNodeLineFromTo} | cut -d ' ' -f 2 )" 
+        local startLineTargetGroup="$(getLineNo ${TargetNodeLineFrom} 1 )"
+        local endLineTargetGroup="$(getLineNo ${TargetNodeLineTo} 9 )"
+        echo "移動先グループ:${startLineTargetGroup}-${endLineTargetGroup}"
+      fi
     }
 
     exit 1
@@ -569,7 +591,7 @@
     
     
 
-
+    
     startlineSelectGroup=$(echo "${indexlist[ ${startnodeSelectGroup} ]}" | cut -d':' -f 1)
     if [[ ${endnodeSelectGroup} -ne ${maxNodeCnt} ]] ; then
       endlineSelectGroup=$(( $(echo "${indexlist[ ${endnodeSelectGroup} ]}" | cut -d':' -f 1) - 1 ))
@@ -812,7 +834,7 @@
     fi
 
     #動作指定のチェック
-    allowActionList=('h' 9 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+    allowActionList=('h' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -ne 0 ]] ; then
       echo '引数2:無効なアクションです'
@@ -821,7 +843,15 @@
     fi
 
     unset allowActionList
-    allowActionList=(9 'd' 'i' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+    allowActionList=('d' 'i' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+    printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
+    if [[ ${?} -eq 0 ]] ; then
+      if [[ ${indexNo} = '' ]] ; then
+        echo "ノードを指定してください"
+        read -s -n 1 c
+        return 1
+      fi
+    fi
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -eq 0 ]] ; then
       if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxNodeCnt} ]] ; then
@@ -957,7 +987,6 @@
 
     makeBackup "${inputFile}" 3 # バックアップ作成。今のところ3世代固定
     makeTmpfile                 # 一時ファイルを作成
-    #displayHelp                 # ヘルプ表示
 
     char1="${action:0:1}"
     char2="${action:1:1}"
