@@ -13,6 +13,7 @@
     readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
 
     maxNodeCnt="${#indexlist[@]}"
+    maxLineCnt="$( cat "${inputFile}" | wc -l  )"
 
   }
 }
@@ -47,12 +48,12 @@
   function getLineNo {
     local selectNodeNo="${1}"
     local mode="${2}"
-    local startLine="$( echo "${indexlist[((selectNodeNo-1))]}" | cut -d: -f 1 )"
+    local startLine="$( echo ${indexlist[ $((selectNodeNo-1)) ]} | cut -d: -f 1 )"
  
     if [[ ${selectNodeNo} -ne $((maxNodeCnt)) ]] ; then
-      local endLine="$(( $( echo ${indexlist[((selectNodeNo))]} | cut -d: -f 1 ) -1 ))"
+      local endLine="$(( $( echo ${indexlist[ $((selectNodeNo)) ]} | cut -d: -f 1 ) -1 ))"
     else
-      local endLine="$( cat "${inputFile}" | wc -l  )"
+      local endLine="${maxLineCnt}"
     fi
     case "${mode}" in
       '') echo "${startLine} ${endLine}" ;;
@@ -97,23 +98,23 @@
     local mode="${2}"
     local selectNoedDepth="$( getDepth ${selectNodeNo} )"
 
-    startnodeSelectGroup="${selectNodeNo}"
-    endnodeSelectGroup="${maxNodeCnt}"
+    startNodeSelectGroup="${selectNodeNo}"
+    endNodeSelectGroup="${maxNodeCnt}"
 
     for i in $( seq "$(( ${selectNodeNo} + 1 ))" "${maxNodeCnt}") ;
     do
       depthCheck="$( getDepth ${i} )"
       if [[ ${depthCheck} -le ${selectNoedDepth} ]] ; then
-        endnodeSelectGroup="$(( ${i} - 1 ))"
+        endNodeSelectGroup="$(( ${i} - 1 ))"
         break
       fi
     done
 
     case "${mode}" in
-      '') echo "${startnodeSelectGroup} ${endnodeSelectGroup}" ;;
-      1) echo  "${startnodeSelectGroup}" ;;
-      9) echo  "${endnodeSelectGroup}" ;;
-      *) echo  "${startnodeSelectGroup} ${endnodeSelectGroup}" ;;
+      '') echo "${startNodeSelectGroup} ${endNodeSelectGroup}" ;;
+      1) echo  "${startNodeSelectGroup}" ;;
+      9) echo  "${endNodeSelectGroup}" ;;
+      *) echo  "${startNodeSelectGroup} ${endNodeSelectGroup}" ;;
     esac
   }
 
@@ -129,7 +130,7 @@
   ##############################################################################
   function getTargetNodeNoInGroup {
     local selectNodeNo="${1}"
-    local direction="${2}"
+     local direction="${2}"
     local mode="${3}"
     local selectNodeDepth="$( getDepth ${selectNodeNo} )"
 
@@ -148,7 +149,7 @@
             ;;
     esac
 
-    for i in $( seq $(( "${selectNode}" + "${inc}" )) "${inc}" "${goal}" ) ;
+    for i in $( seq $(( "${selectNodeNo}" + "${inc}" )) "${inc}" "${goal}" ) ;
     do
       depth="$( getDepth ${i} )"
       if [[ ${depth} -le ${selectNodeDepth} ]] ; then
@@ -164,7 +165,7 @@
 
     local TargetGroupFromTo="$(getNodeNoInGroup ${returnNodeNo} '' )"
     local startnodeTargetGroup="$( echo ${TargetGroupFromTo} | cut -d ' ' -f 1 )"
-    local endnodeTargetGroup="$( echo ${TargetGroupFromTo} | cut -d ' ' -f 2 )"
+    local endnodeTargetGroup="$(   echo ${TargetGroupFromTo} | cut -d ' ' -f 2 )"
 
     case "${mode}" in
       '') echo "${startnodeTargetGroup} ${endnodeTargetGroup}" ;;
@@ -197,9 +198,9 @@
   function focusMode {
 
     local SelectGroupNodeFromTo="$(getNodeNoInGroup ${indexNo} '' )"
-    local startnodeSelectGroup="$( echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 1 )"
-    local endnodeSelectGroup="$( echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 2 )"
-    tree "${startnodeSelectGroup}" "${endnodeSelectGroup}"
+    local startNodeSelectGroup="$( echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 1 )"
+    local endNodeSelectGroup="$( echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 2 )"
+    tree "${startNodeSelectGroup}" "${endNodeSelectGroup}"
   }
 
   ##############################################################################
@@ -212,8 +213,8 @@
   ##############################################################################
   function tree {
 
-    local startnodeSelectGroup="${1}"
-    local endnodeSelectGroup="${2}"
+    local startNodeSelectGroup="${1}"
+    local endNodeSelectGroup="${2}"
 
     printf "【$(basename ${inputFile})】"
     case "${char1}" in
@@ -235,7 +236,7 @@
       *)    ;;
     esac
 
-    seq "${startnodeSelectGroup}" "${endnodeSelectGroup}" | {
+    seq "${startNodeSelectGroup}" "${endNodeSelectGroup}" | {
       while read -r cnt ; do
       startLine="$( getLineNo ${cnt} 1 )"
       endLine="$(   getLineNo ${cnt} 9 )"
@@ -289,33 +290,52 @@
   ##############################################################################
   function singleNodeOperations {
 
-    startLine="$( getLineNo $(( ${indexNo} - 1 )) 1 )"
-    endLine="$(   getLineNo     ${indexNo}        1 )"
+    selectNodeLineFromTo="$( getLineNo ${indexNo} '' )"
+    startLineSelectNode="$( echo ${selectNodeLineFromTo} | cut -d ' ' -f 1 )"
+    endLineSelectNode="$(   echo ${selectNodeLineFromTo} | cut -d ' ' -f 2 )"
 
-    if [[ ${indexNo} -eq 1 ]]; then
-      cat "${inputFile}" | { sed -n "1, $((endLine-1))p" > "${tmpfileB}"; cat >/dev/null;}
-      tail -n +$((endLine)) "${inputFile}" > "${tmpfileF}"
-    else
-      if [[ ${indexNo} -eq $maxNodeCnt ]]; then
-        cat "${inputFile}" | { head -n "$((startLine-1))" > "${tmpfileH}"; cat >/dev/null;}
-        cat "${inputFile}" | { tail -n +$((startLine))  > "${tmpfileB}"; cat >/dev/null;}
-        echo '' > "${tmpfileF}"
+    endLineHeader="$(( ${startLineSelectNode} -1 ))"
+    startLineFooter="$(( ${endLineSelectNode} +1 ))"
+
+    (
+      if [[ ${indexNo} -eq 1 ]]; then
+        printf '' > "${tmpfileHeader}"
       else
-        cat "${inputFile}" | { head -n "$((startLine-1))" > "${tmpfileH}"; cat >/dev/null;}
-        cat "${inputFile}" | { sed -n "$((startLine)), $((endLine-1))p" > "${tmpfileB}"; cat >/dev/null;} 
-        tail -n +$((endLine)) "${inputFile}" > "${tmpfileF}"
+        cat "${inputFile}" | { head -n "${endLineHeader}" > "${tmpfileHeader}"; cat >/dev/null;}
       fi
-    fi
+      wait
+    )
+    (
+      if [[ ${indexNo} -eq 1 ]] ; then
+        cat "${inputFile}" | { sed -n "1, ${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
+      else
+        if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
+          cat "${inputFile}" | { tail -n +${startLineSelectNode}  > "${tmpfileSelect}"; cat >/dev/null;}
+        else
+          echo "${startLineSelectNode} ${endLineSelectNode}p"
+          cat "${inputFile}" | { sed -n "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
+        fi
+      fi
+      wait
+    )
+    (
+      if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
+        printf '' > "${tmpfileFooter}"
+      else
+        tail -n +"${startLineFooter}" "${inputFile}" > "${tmpfileFooter}"
+      fi
+      wait
+    )
 
     case "${action}" in
-      9)  "${selected_editor}" "${tmpfileB}"
+      'e')  "${selected_editor}" "${tmpfileSelect}"
             wait
-            sed -i -e '$a\' "${tmpfileB}" #編集の結果末尾に改行がない場合'
-            cat "${tmpfileH}" "${tmpfileB}" "${tmpfileF}" > "${inputFile}"
+            sed -i -e '$a\' "${tmpfileSelect}" #編集の結果末尾に改行がない場合'
+            cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileFooter}" > "${inputFile}"
             ;;
-      'd')  cat "${tmpfileH}" "${tmpfileF}" > "${inputFile}"
+      'd')  cat "${tmpfileHeader}" "${tmpfileFooter}" > "${inputFile}"
             ;;
-      'v')  "${selected_viewer}" "${tmpfileB}"
+      'v')  "${selected_viewer}" "${tmpfileSelect}"
             ;;
       *)    echo '不正な引数です。'
     esac
@@ -332,26 +352,23 @@
   ##############################################################################
   function insertNode {
     
-    #ノードの検出
-    detectNode
-
     nlString='New Node'
-    endlinePreviousNode="$( getLineNo $(( ${indexNo} -1 )) 9 )"
-    startlineNextNode="$(   getLineNo ${indexNo} 1 )"
+    endLinePreviousNode="$( getLineNo ${indexNo} 9 )"
+    startLineNextNode="$(   getLineNo $(( ${indexNo} +1 )) 1 )"
 
     depth="$( getDepth ${indexNo} )"
     dots="$(seq ${depth} | while read -r line; do printf '.'; done)"
 
-    echo "${dots}${nlString}" > "${tmpfileB}"
-    cat "${inputFile}" | { head -n "${endlinePreviousNode}" > "${tmpfileH}"; cat >/dev/null;}
+    echo "${dots}${nlString}" > "${tmpfileSelect}"
+    cat "${inputFile}" | { head -n "${endLinePreviousNode}" > "${tmpfileHeader}"; cat >/dev/null;}
 
     if [[ ${indexNo} -eq ${maxNodeCnt} ]] ;then
-      awk 1 "${inputFile}" "${tmpfileB}" > "${tmpfile1}"
+      awk 1 "${inputFile}" "${tmpfileSelect}" > "${tmpfile1}"
       cat "${tmpfile1}" > "${inputFile}"
 
     else
-      cat "${inputFile}" | { tail -n +${startlineNextNode}  > "${tmpfileF}"; cat >/dev/null;}
-      cat "${tmpfileH}" "${tmpfileB}" "${tmpfileF}" > "${inputFile}"
+      cat "${inputFile}" | { tail -n +${startLineNextNode}  > "${tmpfileFooter}"; cat >/dev/null;}
+      cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileFooter}" > "${inputFile}"
     fi
 
     bash "${0}" "${inputFile}" 't'
@@ -390,35 +407,48 @@
   # 戻り値:0(成功)/9(失敗)
   ##############################################################################
   function swapNode {
+
+    local indexTargetNode=''
+    local indexNextNode=''
+    local endLinePreviousNode=''
+    local startLineTargetNode=''
+    local endLineTargetNode=''
+    local targetNodeLineFromTo=''
+
+    local indexSelectNode="$(( ${indexNo}    ))"
+    local selectNodeLineFromTo="$( getLineNo ${indexSelectNode} '' )"
+    local startLineSelectNode="$( echo ${selectNodeLineFromTo} | cut -d ' ' -f 1 )"
+    local endLineSelectNode="$(   echo ${selectNodeLineFromTo} | cut -d ' ' -f 2 )"
+
     case "${char2}" in
       'u')  indexTargetNode="$(( ${indexNo} -1 ))"
-            indexSelectNode="$(( ${indexNo}    ))"
+            #indexSelectNode="$(( ${indexNo}    ))"
             indexNextNode="$((   ${indexNo} +1 ))"
 
-            endlinePreviousNode="$(( $( getLineNo ${indexTargetNode} 1 ) - 1 ))"
-            startlineTargetNode="$(     getLineNo ${indexTargetNode} 1 )"
-            endlineTargetNode="$(       getLineNo ${indexTargetNode} 9 )"
-            startlineSelectNode="$( getLineNo ${indexSelectNode} 1 )"
-            endlineSelectNode="$(   getLineNo ${indexSelectNode} 1 )"
+            endLinePreviousNode="$(( $( getLineNo ${indexTargetNode} 1 ) - 1 ))"
+
+            targetNodeLineFromTo="$( getLineNo ${indexTargetNode} '' )"
+            startLineTargetNode="$( echo ${targetNodeLineFromTo} | cut -d ' ' -f 1 )"
+            endLineTargetNode="$(   echo ${targetNodeLineFromTo} | cut -d ' ' -f 2 )"
 
             if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
-              startlineNextNode=''
+              startLineNextNode=''
             else
-              startlineNextNode="$( getLineNo ${indexNextNode} 1 )"
+              startLineNextNode="$( getLineNo ${indexNextNode} 1 )"
             fi
             
             (
-              cat "${inputFile}" | { head -n "${endlinePreviousNode}" > "${tmpfileH}"; cat >/dev/null;}
-              cat "${inputFile}" | { sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}"; cat >/dev/null;}
-              cat "${inputFile}" | { sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}"; cat >/dev/null;}
-              if [[ ! "${startlineNextNode}" = '' ]] ; then 
-                tail -n +"${startlineNextNode}" "${inputFile}" > "${tmpfileF}"
+              cat "${inputFile}" | { head -n "${endLinePreviousNode}" > "${tmpfileHeader}"; cat >/dev/null;}
+              cat "${inputFile}" | { sed -sn "${startLineTargetNode},${endLineTargetNode}p" > "${tmpfileTarget}"; cat >/dev/null;}
+              cat "${inputFile}" | { sed -sn "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
+              if [[ ! "${startLineNextNode}" = '' ]] ; then 
+                tail -n +"${startLineNextNode}" "${inputFile}" > "${tmpfileFooter}"
               fi
               wait
             )
             (
-              cat "${tmpfileH}" "${tmpfileB}" > "${tmpfile1}"
-              cat "${tmpfileT}" "${tmpfileF}" > "${tmpfile2}"
+              cat "${tmpfileHeader}" "${tmpfileSelect}" > "${tmpfile1}"
+              cat "${tmpfileTarget}" "${tmpfileFooter}" > "${tmpfile2}"
               wait
             )
             cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
@@ -426,37 +456,37 @@
             ;;
 
       'd')  indexPreviousNode="$(( ${indexNo} -1 ))"
+            #indexSelectNode="$((   ${indexNo}    ))"
             indexTargetNode="$((   ${indexNo} +1 ))"
-            indexSelectNode="$((   ${indexNo}    ))"
             indexNextNode="$((     ${indexNo} +2 ))"
             
-            endlinePreviousNode="$( getLineNo ${indexPreviousNode} 9 )"
-            startlineSelectNode="$( getLineNo ${indexSelectNode}   1 )"
-            endlineSelectNode="$(   getLineNo ${indexSelectNode}   9 )"
-            startlineTargetNode="$( getLineNo ${indexTargetNode}   1 )"
+            endLinePreviousNode="$( getLineNo ${indexPreviousNode} 9 )"
+
+            targetNodeLineFromTo="$( getLineNo ${indexTargetNode} '' )"
+            startLineTargetNode="$( echo ${targetNodeLineFromTo} | cut -d ' ' -f 1 )"
 
             if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
-              endlineTargetNode="$(cat "${inputFile}" | wc -l )"
+              endLineTargetNode="$(cat "${inputFile}" | wc -l )"
             else
-              endlineTargetNode="$( getLineNo ${indexTargetNode} 9 )"
-              startlineNextNode="$( getLineNo ${indexNextNode}   1 )"
+              endLineTargetNode="$( echo ${targetNodeLineFromTo} | cut -d ' ' -f 2 )"
+              startLineNextNode="$( getLineNo ${indexNextNode}   1 )"
             fi
             (
               if [[ ${indexNo} -eq 1 ]] ; then
-                echo '' > "${tmpfileH}"
+                echo '' > "${tmpfileHeader}"
               else
-                cat "${inputFile}" | { head -n "${endlinePreviousNode}" > "${tmpfileH}"; cat >/dev/null;}
+                cat "${inputFile}" | { head -n "${endLinePreviousNode}" > "${tmpfileHeader}"; cat >/dev/null;}
               fi
-              cat "${inputFile}" | { sed -sn "${startlineTargetNode},${endlineTargetNode}p" > "${tmpfileT}"; cat >/dev/null;} 
-              cat "${inputFile}" | { sed -sn "${startlineSelectNode},${endlineSelectNode}p" > "${tmpfileB}"; cat >/dev/null;}
-              if [[ ! ${startlineNextNode} = '' ]] ; then 
-                tail -n +"${startlineNextNode}" "${inputFile}" > "${tmpfileF}"
+              cat "${inputFile}" | { sed -sn "${startLineTargetNode},${endLineTargetNode}p" > "${tmpfileTarget}"; cat >/dev/null;} 
+              cat "${inputFile}" | { sed -sn "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
+              if [[ ! ${startLineNextNode} = '' ]] ; then 
+                tail -n +"${startLineNextNode}" "${inputFile}" > "${tmpfileFooter}"
               fi
               wait
             )
             (
-              cat "${tmpfileH}" "${tmpfileT}" > "${tmpfile1}"
-              cat "${tmpfileB}" "${tmpfileF}" > "${tmpfile2}"
+              cat "${tmpfileHeader}" "${tmpfileTarget}" > "${tmpfile1}"
+              cat "${tmpfileSelect}" "${tmpfileFooter}" > "${tmpfile2}"
               wait
             )
             cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
@@ -479,17 +509,18 @@
   ##############################################################################
   function slideGroup {
 
-    local startnodeSelectGroup="$( getNodeNoInGroup ${indexNo} 1 )"
-    local endnodeSelectGroup="$(   getNodeNoInGroup ${indexNo} 9 )"
+    local SelectGroupNodeFromTo="$( getNodeNoInGroup ${indexNo} '' )"
+    local startNodeSelectGroup="$( echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 1 )"
+    local endNodeSelectGroup="$(   echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 2 )"
 
     case "${char3}" in
-      'l')  for i in $(seq "${startnodeSelectGroup}" "${endnodeSelectGroup}") ;
+      'l')  for i in $(seq "${startNodeSelectGroup}" "${endNodeSelectGroup}") ;
             do
               tgtLine="$( getLineNo ${i} 1 )"
               sed -i -e "${tgtLine} s/^\.\./\./g" "${inputFile}"
             done
             ;;
-      'r')  for i in $(seq "${startnodeSelectGroup}" "${endnodeSelectGroup}") ;
+      'r')  for i in $(seq "${startNodeSelectGroup}" "${endNodeSelectGroup}") ;
             do
               tgtLine="$( getLineNo ${i} 1 )"
               sed -i -e "${tgtLine} s/^\./\.\./g" "${inputFile}"
@@ -513,208 +544,117 @@
   ##############################################################################
   function swapGroup {
 
+    local selectNodeDepth=0
+    local depthCheck=0
     local direction="${char3}"
 
-    ##対象ノードと同じかそれよりも浅いノードが登場するまでに含まれる
-    ##対象ノードよりもノード番号が大きい全てのノードを、対象グループとする
-    : "対象グループ情報を取得" && {
+    local selectNodeLineFromTo=''
+    local startLineSelectGroup=''
+    local endLineSelectGroup=''
 
-      #ノード番号開始と終了
-      ##対象グループ開始ノードは、起動時に指定した対象ノード
-      local selectNode="${indexNo}"
-      local selectNodeDepth="$( getDepth ${indexNo} )"
+    local targetNodeLineFromTo=''
+    local startLineTargetGroup=''
+    local endLineTargetGroup=''
 
-      ##対象グループ終了ノードは、
-      ##対象グループ開始ノードと同じ深さかそれより浅いノードが登場するまでノードを下っていき
-      ##その範囲に含まれるノードすべて
-      for i in $( seq "$((${indexNo} +1 ))" "${maxNodeCnt}" ) ;
-      do
-        depthCheck="$( getDepth ${i} )"
-        if [[ ${depthCheck} -le ${selectNodeDepth} ]] ; then
-          endnodeSelectGroup="${i}"
-          break
-        fi
-      done
-
-      #選択グループ開始/終了ノードの開始/終了行番号を取得し、選択グループ開始/終了行数とする
-      local startLineSelectGroup="$(getLineNo ${selectNode} 1 )"
-
-      if [[ -n "${endnodeSelectGroup}" ]] ; then
-        local endLineSelectGroup="$(getLineNo ${endnodeSelectGroup} 9 )"
-      else
-        local endLineSelectGroup="$(getLineNo ${maxNodeCnt} 9 )"
-      fi
-
-      echo "選択グループ:${startLineSelectGroup}-${endLineSelectGroup}"
+    : "選択グループ情報を取得" && {
+      selectNodeLineFromTo="$( getNodeNoInGroup ${indexNo} '' )"
+      startLineSelectGroup="$(getLineNo $( echo $( echo ${selectNodeLineFromTo} | cut -d ' ' -f 1 ) | cut -d ' ' -f 1 ) 1 )"
+      endLineSelectGroup="$(  getLineNo $( echo $( echo ${selectNodeLineFromTo} | cut -d ' ' -f 2 ) | cut -d ' ' -f 1 ) 9 )"
 
     }
 
     : "移動先グループ情報を取得" && {
       #上移動の場合
       ##かつ対象ノードが一番上の場合
-      local TargetNodeLineFromTo="$(getTargetNodeNoInGroup "${indexNo}" "${direction}" '' )" 
+      targetNodeLineFromTo="$(getTargetNodeNoInGroup "${indexNo}" "${direction}" '' )" 
       if [[ "${?}" -ne 0 ]] ; then
         echo '交換移動可能なグループがありません'
         read -s -n 1 c
         bash "${0}" "${inputFile}" 't'
-      else 
-        local TargetNodeLineFrom="$( echo ${TargetNodeLineFromTo} | cut -d ' ' -f 1 )" 
-        local TargetNodeLineTo="$( echo ${TargetNodeLineFromTo} | cut -d ' ' -f 2 )" 
-        local startLineTargetGroup="$(getLineNo ${TargetNodeLineFrom} 1 )"
-        local endLineTargetGroup="$(getLineNo ${TargetNodeLineTo} 9 )"
-        echo "移動先グループ:${startLineTargetGroup}-${endLineTargetGroup}"
+        exit 0
+      else
+        startLineTargetGroup="$(getLineNo $( echo $( echo ${targetNodeLineFromTo} | cut -d ' ' -f 1 ) | cut -d ' ' -f 1 ) 1 )"
+        endLineTargetGroup="$(  getLineNo $( echo $( echo ${targetNodeLineFromTo} | cut -d ' ' -f 2 ) | cut -d ' ' -f 1 ) 9 )"
       fi
     }
 
-    exit 1
+    : "ヘッダ部分の情報を取得" && {
+      # directionがu(上と交換)の場合:1行目〜「移動先グループの先頭ノードの先頭行の１行前(startLineTargetGroup-1)」
+      # directionがd(下と交換)の場合:1行目〜「選択グループの先頭ノードの先頭行の1行前(startLineSelectGroup-1)
+      
+      if [[ ${startLineTargetGroup} -eq 1 ]] ; then
+        startLineHeaderGroup=0
+        endLineHeaderGroup=0
+      else
+        startLineHeaderGroup=1
+        case "${direction}" in
+          [uU]) endLineHeaderGroup="$(( ${startLineTargetGroup} -1 ))"
+                ;;
+          [dD]) endLineHeaderGroup="$(( ${startLineSelectGroup} -1 ))"
+                ;;
+          *)  echo 'err'
+              ;;
+        esac
+      fi
+    }
 
-    #動作の想定
-    #上移動の場合
-    ##対象ノードと同じかそれよりも浅いノードが登場するまでに含まれる
-    ##対象ノードよりもノード番号が小さい全てのノードを、目標グループとする
-    ###目標グループが存在しない場合、移動先なしエラーとする
+    : "フッタ部分の情報を取得" && {
+      # directionがu(上と交換)の場合:「選択グループの末尾ノードの末尾行の1行後ろ(endLineSelectGroup+1)」〜最終行
+      # directionがd(下と交換)の場合:「移動先グループの末尾ノードの末尾行の1行後ろ(endLineTargetGroup+1)」〜最終行
 
-    ##目標グループよりも上の行は全てヘッダーグループとする
-    ###ただし、目標グループよりも上の行がない場合、ヘッダーグループは空とする
-    ##対象グループよりも下の行は全てフッターグループである
-    ###ただし、対象グループよりも下の行がない場合、フッターグループは空とする
+      if [[ ${endLineTargetGroup} -eq ${maxLineCnt} ]] ; then
+        startLineFooterGroup="${maxLineCnt}"
+        endLineFooterGroup="${maxLineCnt}"
+      else
+        case "${direction}" in
+          [uU]) startLineFooterGroup="$(( ${endLineSelectGroup} +1 ))"
+                ;;
+          [dD]) startLineFooterGroup="$(( ${endLineTargetGroup} +1 ))"
+                ;;
+          *)  echo 'err'
+              ;;
+        esac
+        endLineFooterGroup="${maxLineCnt}"
+      fi
+    }
 
-    #下移動の場合
-    ##対象グループの次のノードから、それと同じかそれよりも浅いノードが登場するまでに含まれる
-    ##それよりもノード番号が大きい全てのノードを、目標グループとする
-    ###目標グループが存在しない場合、移動先なしエラーとする
+    # echo "ヘッダ:${startLineHeaderGroup}-${endLineHeaderGroup}"
+    # echo "選択:${startLineSelectGroup}-${endLineSelectGroup}"
+    # echo "対象:${startLineTargetGroup}-${endLineTargetGroup}"
+    # echo "フッタ:${startLineFooterGroup}-${endLineFooterGroup}"
+    # read -s -n 1 c
 
-    ##対象グループよりも上の行は全てヘッダーグループとする
-    ###ただし、ヘッダーグループがない場合、ヘッダーグループは空とする
-    ##目標グループよりも下の行は全てフッターグループとする
-    ###目標グループより下の行がない場合、フッターグループは空とする
-    
-    
-
-    
-    startlineSelectGroup=$(echo "${indexlist[ ${startnodeSelectGroup} ]}" | cut -d':' -f 1)
-    if [[ ${endnodeSelectGroup} -ne ${maxNodeCnt} ]] ; then
-      endlineSelectGroup=$(( $(echo "${indexlist[ ${endnodeSelectGroup} ]}" | cut -d':' -f 1) - 1 ))
+   if [[ ${endLineHeaderGroup} -ne 0 ]] ; then
+     cat "${inputFile}" | { head -n "${endLineHeaderGroup}" > "${tmpfileHeader}"; cat >/dev/null;}
     else
-      endlineSelectGroup=$(cat ${inputFile} | wc -l)
+      printf '' > "${tmpfileHeader}"
     fi
 
-    case "${char3}" in
-      'u')  indexCheck=$(( ${indexNo} - 2 ))
-            depthCheck=$(echo "${indexlistN[ ${indexCheck} ]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
-            i=2
-            while [[ ${depth} -ne ${depthCheck} ]] && [[ ${indexCheck} -gt 0 ]] ;
-            do
-              indexCheck=$(( ${indexNo} - ${i} ))
-              depthCheck=$(echo "${indexlistN[ ${indexCheck} ]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
-              i=$(($i+1))
-            done
-            if [[ ${indexCheck} -eq  0 ]] ; then
-              echo '移動可能なノードがありません'
+    cat "${inputFile}" | { sed -sn "${startLineTargetGroup},${endLineTargetGroup}p" > "${tmpfileTarget}"; cat >/dev/null;} 
+    cat "${inputFile}" | { sed -sn "${startLineSelectGroup},${endLineSelectGroup}p" > "${tmpfileSelect}"; cat >/dev/null;}
+
+    if [[ ${startLineFooterGroup} -ne ${maxLineCnt} ]] ; then
+      tail -n +"${startLineFooterGroup}" "${inputFile}" > "${tmpfileFooter}"
+    else
+      printf '' > "${tmpfileFooter}"
+    fi
+
+    (
+      case "${direction}" in
+        [uU]) cat "${tmpfileHeader}" "${tmpfileSelect}" > "${tmpfile1}"
+              cat "${tmpfileTarget}" "${tmpfileFooter}" > "${tmpfile2}"
+              ;;
+        [dD]) cat "${tmpfileHeader}" "${tmpfileTarget}" > "${tmpfile1}"
+              cat "${tmpfileSelect}" "${tmpfileFooter}" > "${tmpfile2}"
+              ;;
+        *)    echo 'err'
               read -s -n 1 c
-              bash "${0}" "${inputFile}" 't'
-              exit 0
-            fi
+              ;;
+      esac
+      wait
+    )
 
-            startlineTargetGroup=$(echo "${indexlistN[ ${indexCheck} ]}"| cut -d':' -f 1)
-            endlineTargetGroup=$(echo $(( $( echo "${indexlistN[ $((${indexNo}-1)) ]}"| cut -d':' -f 1 ) - 1 ))) 
-
-            startlineHeadGroup='1'
-            endlineHeadGroup=$(( ${startlineTargetGroup} - 1 ))
-
-            if [[ ${endnodeSelectGroup} -ne ${maxNodeCnt} ]] ; then
-              startlineFooterGroup=$(( ${endlineSelectGroup} + 1))
-              endlineFooterGroup=$( cat "${inputFile}" | wc -l  )
-            fi
-
-            echo "${startlineHeadGroup}-${endlineHeadGroup}"
-            echo "${startlineTargetGroup}-${endlineTargetGroup}"
-            echo "${startlineSelectGroup}-${endlineSelectGroup}"
-            echo "${startlineFooterGroup}-${endlineFooterGroup}"
-            exit 1
-
-            (
-              cat "${inputFile}" | { head -n "${endlineHeadGroup}" > "${tmpfileH}"; cat >/dev/null;}
-              cat "${inputFile}" | { sed -sn "${startlineSelectGroup},${endlineSelectGroup}p" > "${tmpfileT}"; cat >/dev/null;} 
-              cat "${inputFile}" | { sed -sn "${startlineTargetGroup},${endlineTargetGroup}p" > "${tmpfileB}"; cat >/dev/null;}
-
-              if [[ ${endnodeSelectGroup} -ne ${maxNodeCnt} ]] ; then
-                tail -n +"${startlineFooterGroup}" "${inputFile}" > "${tmpfileF}"
-              fi
-              wait
-            )
-            (
-              cat "${tmpfileH}" "${tmpfileT}" > "${tmpfile1}"
-              if [[ ${endnodeSelectGroup} -ne ${maxNodeCnt} ]] ; then
-                cat "${tmpfileB}" "${tmpfileF}" > "${tmpfile2}"
-              else
-                cat "${tmpfileB}" > "${tmpfile2}"
-              fi
-              wait
-            )
-            cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
-      
-            ;;
-      'd')  indexCheck=$(( ${indexNo} + 1 ))
-            depthCheck=$(echo "${indexlistN[ ${indexCheck} ]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
-            i=0
-            while [[ ${depth} -ne ${depthCheck} ]] && [[ ${indexCheck} -gt 0 ]] ;
-            do
-              i=$(($i+1))
-              indexCheck=$(( ${indexNo} + ${i} ))
-              depthCheck=$(echo "${indexlistN[ ${indexCheck} ]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
-            done
-            if [[ ${indexCheck} -eq  0 ]] ; then
-              echo '移動可能なノードがありません'
-              read -s -n 1 c
-              bash "${0}" "${inputFile}" 't'
-              exit 0
-            fi
-            indexCheck=$(($i+indexCheck))
-
-            i=0
-            while [[ ${depth} -ne ${depthCheck} ]] && [[ ${indexCheck} -gt 0 ]] ;
-            do
-              i=$(($i+1))
-              indexCheck=$(( ${indexNo} + ${i} ))
-              depthCheck=$(echo "${indexlistN[ ${indexCheck} ]}" | cut -d':' -f 2 | grep -oP '^\.+' | grep -o '.' | wc -l)
-            done
-
-
-            startlineTargetGroup=$(echo "${indexlistN[ $((${indexCheck})) ]}"| cut -d':' -f 1)
-            endlineTargetGroup=$(echo $(( $( echo "${indexlistN[ $((${indexCheck} + 1 )) ]}"| cut -d':' -f 1 ) - 1 )))
-
-
-            startlineHeadGroup='1'
-            endlineHeadGroup=$(( ${startlineSelectGroup} - 1 ))
-
-            startlineFooterGroup=$(( ${endlineTargetGroup} + 1))
-            endlineFooterGroup=$( cat "${inputFile}" | wc -l  )
-
-            echo "${startlineHeadGroup}-${endlineHeadGroup}"
-            echo "${startlineSelectGroup}-${endlineSelectGroup}"
-            echo "${startlineTargetGroup}-${endlineTargetGroup}"
-            echo "${startlineFooterGroup}-${endlineFooterGroup}"
-
-            (
-              cat "${inputFile}" | { head -n "${endlineHeadGroup}" > "${tmpfileH}"; cat >/dev/null;}
-              cat "${inputFile}" | { sed -sn "${startlineTargetGroup},${endlineTargetGroup}p" > "${tmpfileT}"; cat >/dev/null;} 
-              cat "${inputFile}" | { sed -sn "${startlineSelectGroup},${endlineSelectGroup}p" > "${tmpfileB}"; cat >/dev/null;}
-              tail -n +"${startlineFooterGroup}" "${inputFile}" > "${tmpfileF}"
-              wait
-            )
-            (
-              cat "${tmpfileH}" "${tmpfileT}" > "${tmpfile1}"
-              cat "${tmpfileB}" "${tmpfileF}" > "${tmpfile2}"
-              wait
-            )
-            cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
-            ;;
-      *)    echo 'err'
-            read -s -n 1 c
-            ;;
-    esac
-
+    cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
     bash "${0}" "${inputFile}" 't'
     exit 0
 
@@ -734,12 +674,12 @@
     #3つ以上作る気がない
     #echo 'バックアップ作成'
     if [[ -f "./$(basename ${orgFile})_bk_2" ]] ; then 
-      cp "./$(basename ${orgFile})_bk_2" "./$(basename ${orgFile})_bk_3"
+      cp -f "./$(basename ${orgFile})_bk_2" "./$(basename ${orgFile})_bk_3"
     fi
     if [[ -f "./$(basename ${orgFile})_bk_1" ]] ; then 
-      cp "./$(basename ${orgFile})_bk_1" "./$(basename ${orgFile})_bk_2"
+      cp -f "./$(basename ${orgFile})_bk_1" "./$(basename ${orgFile})_bk_2"
     fi
-    cp "./$(basename ${orgFile})" "./$(basename ${orgFile})_bk_1"
+    cp -f "./$(basename ${orgFile})" "./$(basename ${orgFile})_bk_1"
   }
 }
 
@@ -788,14 +728,17 @@
 
     #(存在する)ファイルのみを指定した場合、ツリービューに読み替え
     if [[ ${#action} = 0 ]] ; then
+      echo "動作指定がないためツリー表示します"
+      read -s -n 1 c
       bash "${0}" "${inputFile}" 't'
-      return 0
     fi
 
     #動作指定を省略して段落を指定した場合、編集に読み替え
     if [[ ${action} =~ ^[0-9]+$ ]] && [[ ${#indexNo} = 0 ]] ; then
-      bash "${0}" "${inputFile}" 9 "${action}"
-      return 0
+      echo "段落のみが指定されたため、編集モードにします"
+      read -s -n 1 c
+      bash "${0}" "${inputFile}" 'e' "${action}"
+      exit 0
     fi
 
     if [[ -f ${inputFile} ]] && [[ ${#action} = 0 ]] ; then
@@ -806,7 +749,7 @@
     ######################################
     #バックアップ作成
     ######################################
-    makeBackupActionList=(9 'd' 'i' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+    makeBackupActionList=('e' 'd' 'i' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
     printf '%s\n' "${makeBackupActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -eq 0 ]] ; then
       makeBackup "${inputFile}"
@@ -826,15 +769,8 @@
     
     local depth=$(getDepth ${indexNo})
 
-    #対象ファイルの存在チェック
-    if [[ ! -f ${inputFile} ]] ; then
-      echo "${inputFile} なんてファイルないです"
-      read -s -n 1 c
-      return 1
-    fi
-
     #動作指定のチェック
-    allowActionList=('h' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -ne 0 ]] ; then
       echo '引数2:無効なアクションです'
@@ -843,7 +779,7 @@
     fi
 
     unset allowActionList
-    allowActionList=('d' 'i' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+    allowActionList=('e' 'd' 'i' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -eq 0 ]] ; then
       if [[ ${indexNo} = '' ]] ; then
@@ -898,7 +834,6 @@
       return 1
     fi
 
-
   }
 }
 
@@ -909,10 +844,10 @@
   # 戻り値:0(成功)/9(失敗)
   ##############################################################################
   function rm_tmpfile {
-    [[ -f "${tmpfileH}" ]] && rm -f "${tmpfileH}"
-    [[ -f "${tmpfileB}" ]] && rm -f "${tmpfileB}"
-    [[ -f "${tmpfileT}" ]] && rm -f "${tmpfileT}"
-    [[ -f "${tmpfileF}" ]] && rm -f "${tmpfileF}"
+    [[ -f "${tmpfileHeader}" ]] && rm -f "${tmpfileHeader}"
+    [[ -f "${tmpfileSelect}" ]] && rm -f "${tmpfileSelect}"
+    [[ -f "${tmpfileTarget}" ]] && rm -f "${tmpfileTarget}"
+    [[ -f "${tmpfileFooter}" ]] && rm -f "${tmpfileFooter}"
   }
 
   ##############################################################################
@@ -923,13 +858,12 @@
   function makeTmpfile {
 
     # 一時ファイルを作る
-    tmpfileH="$(mktemp)"
-    tmpfileB="$(mktemp)"
-    tmpfileT="$(mktemp)"
-    tmpfileF="$(mktemp)"
-    tmpfile1="$(mktemp)"
-    tmpfile2="$(mktemp)"
-
+    tmpfileHeader=$(mktemp)
+    tmpfileSelect=$(mktemp)
+    tmpfileTarget=$(mktemp)
+    tmpfileFooter=$(mktemp)
+    tmpfile1=$(mktemp)
+    tmpfile2=$(mktemp)
   }
 }
 
@@ -958,7 +892,7 @@
     echo '　　　　　gmd...自分の配下ノードを引き連れて下へ移動'
     echo '　　　　　gml...自分の配下ノードを引き連れて左へ移動(浅くする)'
     echo '　　　　　gmr...自分の配下ノードを引き連れて右へ移動(深くする)'
-    echo '　　　　　0～99...対象ノードを編集(eと引数3を省略)'
+    echo '　　　　　数字...対象ノードを編集(eと引数3を省略)'
     echo '　引数3:動作対象ノード番号'
   }
 }
@@ -976,6 +910,13 @@
     inputFile="${1}"
     action="${2}"
     indexNo="${3}"
+
+    #対象ファイルの存在チェック
+    if [[ ! -f ${inputFile} ]] ; then
+      echo "${inputFile} なんてファイルないです"
+      read -s -n 1 c
+      exit 100
+    fi
 
     myInit                      # 初期処理
 
@@ -1030,8 +971,8 @@
 
 ###########################################
 # エントリーポイント
-###########################################
 
+###########################################
 main "${1}" "${2}" "${3}"
 
 # 正常終了したときに一時ファイルを削除する
