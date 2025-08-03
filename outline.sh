@@ -661,6 +661,47 @@
   }
 }
 
+: "配下ノード削除コマンド" && {
+  ##############################################################################
+  # 対象のノードとその配下を削除する
+  # 戻り値:0(成功)/9(失敗)
+  ##############################################################################
+  function deleteGroup {
+
+    local selectGroupNodeFromTo="$( getNodeNoInGroup ${indexNo} '' )"
+    local startNodeSelectGroup="$( echo ${selectGroupNodeFromTo} | cut -d ' ' -f 1 )"
+    local endNodeSelectGroup="$(   echo ${selectGroupNodeFromTo} | cut -d ' ' -f 2 )"
+
+    local startLineSelectGroup="$( getLineNo ${startNodeSelectGroup} 1 )"
+    local endLineSelectGroup="$(   getLineNo ${endNodeSelectGroup} 9 )"
+
+    local endLineHeader="$(( ${startLineSelectGroup} - 1 ))"
+    local startLineFooter="$(( ${endLineSelectGroup} + 1 ))"
+
+    (
+      if [[ ${endLineHeader} -eq 0 ]]; then
+        printf '' > "${tmpfileHeader}"
+      else
+        cat "${inputFile}" | { head -n "${endLineHeader}" > "${tmpfileHeader}"; cat >/dev/null;}
+      fi
+      wait
+    )
+    (
+      if [[ ${startLineFooter} -gt ${maxLineCnt} ]] ; then
+        printf '' > "${tmpfileFooter}"
+      else
+        tail -n +"${startLineFooter}" "${inputFile}" > "${tmpfileFooter}"
+      fi
+      wait
+    )
+
+    cat "${tmpfileHeader}" "${tmpfileFooter}" > "${inputFile}"
+
+    bash "${0}" "${inputFile}" 't'
+    exit 0
+  }
+}
+
 : "バックアップ関数" && {
   ##############################################################################
   # バックアップ作成
@@ -771,7 +812,7 @@
     local depth=$(getDepth ${indexNo})
 
     #動作指定のチェック
-    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+    allowActionList=('h' 'e' 'd' 'gd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -ne 0 ]] ; then
       echo '引数2:無効なアクションです'
@@ -780,7 +821,7 @@
     fi
 
     unset allowActionList
-    allowActionList=('e' 'd' 'i' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+    allowActionList=('e' 'd' 'gd' 'i' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -eq 0 ]] ; then
       if [[ ${indexNo} = '' ]] ; then
@@ -886,6 +927,7 @@
     echo '　　　　　v.....対象ノードの閲覧'
     echo '　　　　　e.....対象ノードの編集'
     echo '　　　　　d.....対象ノードの削除'
+    echo '　　　　　gd....自分の配下ノードを含めて削除'
     echo '　　　　　i.....対象ノードの下に新規ノード挿入'
     echo '　　　　　mu....対象ノードひとつを上へ移動'
     echo '　　　　　md....対象ノードひとつを下へ移動'
@@ -952,13 +994,20 @@
                   ;;
             esac
             ;;
-      'g')  case "${char3}" in 
-              [ud]) swapGroup
+      'g')  case "${char2}" in
+              'm')  case "${char3}" in 
+                      [ud]) swapGroup
+                            ;;
+                      [lr]) slideGroup
+                            ;;
+                      *) echo 'err'
+                        ;;
+                    esac
                     ;;
-              [lr]) slideGroup
-                    ;;
-              *)  echo 'err'
+              'd') deleteGroup
                   ;;
+              *) echo 'err'
+                 ;;
             esac
             ;;
       'f')  focusMode
