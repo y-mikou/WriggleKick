@@ -70,7 +70,7 @@
   # ノードタイトル取得
   # 対象ノードのタイトルを取得する
   # 引数1:対象ノード番号
-  # 戻り値:0(成功)/9(失敗)
+  # 戻り値:なし
   # 標準出力:対象ノードのタイトル
   ##############################################################################
   function getNodeTitle {
@@ -338,6 +338,8 @@
       'v')  "${selected_viewer}" "${tmpfileSelect}"
             ;;
       *)    echo '不正な引数です。'
+            exit 9
+            ;;
     esac
 
     bash "${0}" "${inputFile}" 't'
@@ -391,7 +393,7 @@
       'r')  sed -i -e "$tgtLine s/^/\./g" "${inputFile}"
             ;;
       *)    echo 'err'
-            exit 1
+            exit 9
             ;;
     esac
 
@@ -493,7 +495,7 @@
             ;;
 
       *)    echo 'err'
-            exit 1
+            exit 9
             ;;
     esac
 
@@ -528,6 +530,7 @@
             ;;
       *)    echo 'err'
             read -s -n 1 c
+            exit 9
             ;;
     esac
 
@@ -612,6 +615,7 @@
           [dD]) startLineFooterGroup="$(( ${endLineTargetGroup} +1 ))"
                 ;;
           *)  echo 'err'
+              exit 9
               ;;
         esac
         endLineFooterGroup="${maxLineCnt}"
@@ -649,6 +653,7 @@
               ;;
         *)    echo 'err'
               read -s -n 1 c
+              exit 9
               ;;
       esac
       wait
@@ -812,7 +817,7 @@
     local depth=$(getDepth ${indexNo})
 
     #動作指定のチェック
-    allowActionList=('h' 'e' 'd' 'gd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -ne 0 ]] ; then
       echo '引数2:無効なアクションです'
@@ -821,7 +826,7 @@
     fi
 
     unset allowActionList
-    allowActionList=('e' 'd' 'gd' 'i' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+    allowActionList=('e' 'd' 'i' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -eq 0 ]] ; then
       if [[ ${indexNo} = '' ]] ; then
@@ -927,7 +932,6 @@
     echo '　　　　　v.....対象ノードの閲覧'
     echo '　　　　　e.....対象ノードの編集'
     echo '　　　　　d.....対象ノードの削除'
-    echo '　　　　　gd....自分の配下ノードを含めて削除'
     echo '　　　　　i.....対象ノードの下に新規ノード挿入'
     echo '　　　　　mu....対象ノードひとつを上へ移動'
     echo '　　　　　md....対象ノードひとつを下へ移動'
@@ -994,20 +998,13 @@
                   ;;
             esac
             ;;
-      'g')  case "${char2}" in
-              'm')  case "${char3}" in 
-                      [ud]) swapGroup
-                            ;;
-                      [lr]) slideGroup
-                            ;;
-                      *) echo 'err'
-                        ;;
-                    esac
+      'g')  case "${char3}" in 
+              [ud]) swapGroup
                     ;;
-              'd') deleteGroup
+              [lr]) slideGroup
+                    ;;
+              *)  echo 'err'
                   ;;
-              *) echo 'err'
-                 ;;
             esac
             ;;
       'f')  focusMode
