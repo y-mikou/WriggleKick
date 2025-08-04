@@ -257,19 +257,19 @@
       seq ${depth} | while read -r line; do printf '  '; done
         case "${depth}" in
           '1') printf '📚️ '
-               ;;
+              ;;
           [2]) printf '└📗 '
-               ;;
+              ;;
           [34]) printf '└📖 '
                 ;;
           [567]) printf '└📄 '
-                 ;;
+                ;;
           [89]) printf '└🏷️ '
                 ;;
           '10')  printf '└🗨️ '
-                 ;;        
+                ;;        
           *) printf '└🗨️ '
-             ;;
+            ;;
         esac 
         echo "$( getNodeTitle ${cnt} )"
       done
@@ -968,6 +968,14 @@
     fi
 
     myInit                      # 初期処理
+
+    if [[ ${maxNodeCnt} -eq 0 ]] ; then
+      echo 'ノードがありません。先頭に第一ノードを追加します' 
+      printf '%s\n' 0a '.1st Node' . x | ex "${inputFile}"
+      read -s -n 1 c
+      bash "${0}" "${inputFile}" 't'
+      exit 0
+    fi
 
     #パラメータチェック
     parameterCheck
