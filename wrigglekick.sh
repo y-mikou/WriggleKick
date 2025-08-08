@@ -2,11 +2,17 @@
 
 : "ノード検出" && {
   ##############################################################################
+  ##############################################################################
+  declare -a nodeStartLines
+  declare -a nodeEndLines
+  declare -a nodeDepths
+  declare -a nodeTitles
+
+  ##############################################################################
   # ノード検出
   # 入力ファイルのノード構成を検出してグローバル設定する
-  # 今は最大ノード数のみ
   # 引数:なし(グローバル変数のみ参照)
-  # グローバル変数設定:最大ノード数(maxNodeCnt)
+  # グローバル変数設定:最大ノード数(maxNodeCnt)、各種配列
   ##############################################################################
   function detectNode {
     
@@ -14,6 +20,37 @@
 
     maxNodeCnt="${#indexlist[@]}"
     maxLineCnt="$( cat "${inputFile}" | wc -l  )"
+
+    nodeStartLines=()
+    nodeEndLines=()
+    nodeDepths=()
+    nodeTitles=()
+
+    for i in $(seq 1 ${maxNodeCnt}); do
+      local entry="${indexlist[$((i-1))]}"
+      local startLine="${entry%%:*}"
+      local content="${entry#*:}"
+      
+      local endLine
+      if [[ ${i} -ne ${maxNodeCnt} ]]; then
+        local nextEntry="${indexlist[${i}]}"
+        local nextStartLine="${nextEntry%%:*}"
+        endLine=$((nextStartLine - 1))
+      else
+        endLine="${maxLineCnt}"
+      fi
+      
+      local depth="${content}"
+      depth="${depth%%[^.]*}"
+      depth="${#depth}"
+      
+      local title="${content##*.}"
+      
+      nodeStartLines+=("${startLine}")
+      nodeEndLines+=("${endLine}")
+      nodeDepths+=("${depth}")
+      nodeTitles+=("${title}")
+    done
 
   }
 }
@@ -27,10 +64,8 @@
   ##############################################################################
   function getDepth {
     
-    selectNode="${1}"
-
-    local replaceFrom="$(echo ${indexlist[(( selectNode - 1 ))]} | cut -d: -f 2)"
-    echo "${replaceFrom}" | grep -oP '^\.+' | grep -o '.' | wc -l
+    local selectNode="${1}"
+    echo "${nodeDepths[$((selectNode-1))]}"
 
   }
 }
@@ -48,13 +83,9 @@
   function getLineNo {
     local selectNodeNo="${1}"
     local mode="${2}"
-    local startLine="$( echo ${indexlist[ $((selectNodeNo-1)) ]} | cut -d: -f 1 )"
- 
-    if [[ ${selectNodeNo} -ne $((maxNodeCnt)) ]] ; then
-      local endLine="$(( $( echo ${indexlist[ $((selectNodeNo)) ]} | cut -d: -f 1 ) -1 ))"
-    else
-      local endLine="${maxLineCnt}"
-    fi
+    local startLine="${nodeStartLines[$((selectNodeNo-1))]}"
+    local endLine="${nodeEndLines[$((selectNodeNo-1))]}"
+    
     case "${mode}" in
       '') echo "${startLine} ${endLine}" ;;
       1) echo  "${startLine}" ;;
@@ -76,10 +107,7 @@
   function getNodeTitle {
     
     local selectNode="${1}"
-
-    local replaceFrom="$(echo ${indexlist[(( selectNode - 1 ))]} | cut -d: -f 2)"
-
-    echo "${replaceFrom##*.}"
+    echo "${nodeTitles[$((selectNode-1))]}"
 
   }
 }
