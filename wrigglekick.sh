@@ -309,7 +309,26 @@
   }
 }
 
-: "ノード削除・編集・閲覧コマンド" && {
+: "配下ノード閲覧コマンド" && {
+  ##############################################################################
+  # 選択ノードから、下方向に選択ノードよりも深さが深い限り続くノード範囲を対象に、閲覧する
+  # 引数:ノード番号
+  # 戻り値:0(成功)/9(失敗)
+  ##############################################################################
+  function groupView {
+    local selectNode="${indexNo}"
+    local tgtGroup="$( getNodeNoInGroup ${selectNode} '' )"
+    local startLineSelectGroup="$( getLineNo $( echo ${tgtGroup} | cut -d ' ' -f 1 ) 1 )"
+    local endLineSelectGroup="$( getLineNo $( echo ${tgtGroup} | cut -d ' ' -f 2 ) 9 )"
+
+    cat "${inputFile}" | sed -sn "${startLineSelectGroup},${endLineSelectGroup}p" > "${tmpfileTarget}"
+    "${selected_viewer}" "${tmpfileTarget}"
+    bash "${0}" "${inputFile}" 't'
+    exit 0
+  }
+}
+
+: "ノード削除・ノード編集・単一ノード閲覧コマンド" && {
   ##############################################################################
   # d:対象のノードを削除する
   # e:対象のノードを編集する
@@ -650,12 +669,6 @@
       fi
     }
 
-    # echo "ヘッダ:${startLineHeaderGroup}-${endLineHeaderGroup}"
-    # echo "選択:${startLineSelectGroup}-${endLineSelectGroup}"
-    # echo "対象:${startLineTargetGroup}-${endLineTargetGroup}"
-    # echo "フッタ:${startLineFooterGroup}-${endLineFooterGroup}"
-    # read -s -n 1 c
-
    if [[ ${endLineHeaderGroup} -ne 0 ]] ; then
      cat "${inputFile}" | { head -n "${endLineHeaderGroup}" > "${tmpfileHeader}"; cat >/dev/null;}
     else
@@ -845,7 +858,7 @@
     local depth=$(getDepth ${indexNo})
 
     #動作指定のチェック
-    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -ne 0 ]] ; then
       echo '引数2:無効なアクションです'
@@ -854,7 +867,7 @@
     fi
 
     unset allowActionList
-    allowActionList=('e' 'd' 'i' 'f' 'fl' 'fa' 'v' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+    allowActionList=('e' 'd' 'i' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -eq 0 ]] ; then
       if [[ ${indexNo} = '' ]] ; then
@@ -958,6 +971,7 @@
     echo '　　　　　fl....行番号付きフォーカスビュー'
     echo '　　　　　fla...行番号範囲深さ付きフォーカスビュー'
     echo '　　　　　v.....対象ノードの閲覧'
+    echo '　　　　　gv....対象ノードの配下ノードを横断的に閲覧'
     echo '　　　　　e.....対象ノードの編集'
     echo '　　　　　d.....対象ノードの削除'
     echo '　　　　　i.....対象ノードの下に新規ノード挿入'
@@ -1034,13 +1048,19 @@
                   ;;
             esac
             ;;
-      'g')  case "${char3}" in 
-              [ud]) swapGroup
+      'g')  case "${char2}" in 
+              'v')  groupView
                     ;;
-              [lr]) slideGroup
-                    ;;
-              *)  echo 'err'
-                  ;;
+              *)  case "${char3}" in 
+                    [ud]) swapGroup
+                          ;;
+                    [lr]) slideGroup
+                          ;;
+                    [lr]) slideGroup
+                          ;;
+                    *)  echo 'err'
+                        ;;
+                  esac
             esac
             ;;
       'f')  focusMode
@@ -1056,7 +1076,6 @@
 
 ###########################################
 # エントリーポイント
-
 ###########################################
 main "${1}" "${2}" "${3}"
 
