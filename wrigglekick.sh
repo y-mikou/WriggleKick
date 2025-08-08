@@ -8,6 +8,7 @@
   declare -a nodeEndLines
   declare -a nodeDepths
   declare -a nodeTitles
+  declare -a nodePreview
 
   ##############################################################################
   # ノード検出
@@ -26,13 +27,14 @@
     nodeEndLines=()
     nodeDepths=()
     nodeTitles=()
+    # nodePreview=()
 
     for i in $(seq 1 ${maxNodeCnt}); do
       local entry="${indexlist[$((i-1))]}"
       local startLine="${entry%%:*}"
-      local content="${entry#*:}"
-      
+      local content="${entry#*:}"      
       local endLine
+
       if [[ ${i} -ne ${maxNodeCnt} ]]; then
         local nextEntry="${indexlist[${i}]}"
         local nextStartLine="${nextEntry%%:*}"
@@ -46,15 +48,53 @@
       depth="${#depth}"
       
       local title="${content##*.}"
-      
+
       nodeStartLines+=("${startLine}")
       nodeEndLines+=("${endLine}")
       nodeDepths+=("${depth}")
       nodeTitles+=("${title}")
+
+      # local preview="$( getOutset ${i} 10 )"
+      # nodePreview+=("${preview}")
+
     done
+    # maxDepth=$(for element in "${nodeDepths[@]}"; do echo "$element"; done | sort -n | tail -n 1)
+    # maxTitleLength=$(for element in "${nodeTitles[@]}"; do echo "$element"; done | sort -n | tail -n 1 | wc -c)
+    # padSeed=$(( ${maxDepth} + ${maxTitleLength} ))
 
   }
 }
+
+: "冒頭取得" && {
+  ##############################################################################
+  # 冒頭取得
+  # 対象ノードの冒頭n文字を取得する。ノードの1行目はタイトルなので2行目以降
+  # 引数1:対象ノード番号
+  # 引数2:取得文字
+  # 標準出力:対象ノードの冒頭
+  ##############################################################################
+  function getOutset {
+    
+    local selectNode="${1}"
+    local getCharactorAmount="${2}"
+
+    local startLineGetOutset="$( getLineNo ${selectNode} 1 )"
+    local endLineGetOutset="$(   getLineNo ${selectNode} 9 )"
+    local outset=''
+
+    if [[ ${startLineGetOutset} -eq ${endLineGetOutset} ]] ; then
+      outset=''
+    else
+      startLineGetOutset="$(( ${startLineGetOutset} + 1 ))"
+      outset="$( cat ${inputFile} | sed -n ${startLineGetOutset}p  | tr -d '\n' )"
+      outset="${outset:0:${getCharactorAmount}}"
+    fi
+
+    echo "${outset}"
+
+  }
+}
+
 
 : "深さ取得" && {
   ##############################################################################
@@ -86,7 +126,7 @@
     local mode="${2}"
     local startLine="${nodeStartLines[$((selectNodeNo-1))]}"
     local endLine="${nodeEndLines[$((selectNodeNo-1))]}"
-    
+
     case "${mode}" in
       '') echo "${startLine} ${endLine}" ;;
       1) echo  "${startLine}" ;;
@@ -159,7 +199,7 @@
   ##############################################################################
   function getTargetNodeNoInGroup {
     local selectNodeNo="${1}"
-     local direction="${2}"
+    local direction="${2}"
     local mode="${3}"
     local selectNodeDepth="$( getDepth ${selectNodeNo} )"
 
@@ -267,23 +307,29 @@
 
     seq "${startNodeSelectGroup}" "${endNodeSelectGroup}" | {
       while read -r cnt ; do
-      startLine="$( getLineNo ${cnt} 1 )"
-      endLine="$(   getLineNo ${cnt} 9 )"
-      depth="$( getDepth ${cnt} )"
+        startLine="$( getLineNo ${cnt} 1 )"
+        endLine="$(   getLineNo ${cnt} 9 )"
+        depth="$( getDepth ${cnt} )"
 
+        titleLength="${nodeTitles[ $(( cnt-1 )) ]}"
+        titleLength="${#titleLength}"
 
-      printf "%06d" "${cnt}"
-      case "${char2}" in
-        '')  :
-              ;;
-        'l') printf " %08d" "${startLine}"
-              ;;
-        'a') printf " %08d~%08d %03d" "${startLine}" "${endLine}" "${depth}"
-              ;;
-        *)    ;;
-      esac
+        padding="$(( ${padSeed} - ${depth} - ${titleLength} ))"
 
-      seq ${depth} | while read -r line; do printf '  '; done
+        printf "%06d" "${cnt}"
+
+        case "${char2}" in
+          '')  :
+                ;;
+          'l') printf " %08d" "${startLine}"
+                ;;
+          'a') printf " %08d~%08d %03d" "${startLine}" "${endLine}" "${depth}"
+                ;;
+          *)    ;;
+        esac
+
+        seq ${depth} | while read -r line; do printf '  '; done
+        
         case "${depth}" in
           '1') printf '📚️ '
               ;;
@@ -301,7 +347,13 @@
             ;;
         esac 
         echo "$( getNodeTitle ${cnt} )"
+
+        # printf "$( getNodeTitle ${cnt} )"
+        # seq ${padding} | while read -r line; do printf '  '; done
+        # echo "${nodePreview[$((${cnt}-1))]}"
+
       done
+
     }
 
     echo '❓️引数なしでhelp参照'
@@ -859,7 +911,7 @@
     local depth=$(getDepth ${indexNo})
 
     #動作指定のチェック
-    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'x')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -ne 0 ]] ; then
       echo '引数2:無効なアクションです'
@@ -1036,6 +1088,8 @@
     clear
 
     case "${char1}" in
+      'x')  getOutset "${indexNo}" 10
+            ;;
       'h')  displayHelp
             ;;
       't')  displayTree
