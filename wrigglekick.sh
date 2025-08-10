@@ -54,7 +54,7 @@
       nodeDepths+=("${depth}")
       nodeTitles+=("${title}")
 
-      local preview="$( getOutset ${i} 30 )"
+      local preview="$( getOutset ${i} 50 )"
       nodePreview+=("${preview}")
 
     done
@@ -76,7 +76,8 @@
   function getOutset {
     
     local selectNode="${1}"
-    local getCharactorAmount="$(( (${maxChar} / 2) - ${padSeed} - ${2} - 20 ))"
+
+    local getCharactorAmount="$(( ${maxChar}/2 - ${padSeed} + ${2} ))"
 
     local startLineGetOutset="$( getLineNo ${selectNode} 1 )"
     local endLineGetOutset="$(   getLineNo ${selectNode} 9 )"
@@ -87,7 +88,7 @@
     else
       startLineGetOutset="$(( ${startLineGetOutset} + 1 ))"
       outset="$( cat ${inputFile} | sed -n ${startLineGetOutset},${endLineGetOutset}p  | tr -d '\r\n' )"
-      outset="${outset:0:${getCharactorAmount}}"
+      outset="…………${outset:0:${getCharactorAmount}}"
     fi
 
     echo "${outset}"
@@ -344,7 +345,7 @@
             ;;
         esac 
         printf "【$( getNodeTitle ${cnt} )】"
-        echo "…………${nodePreview[$((${cnt}-1))]}"
+        echo "${nodePreview[$((${cnt}-1))]}"
 
 
       done
