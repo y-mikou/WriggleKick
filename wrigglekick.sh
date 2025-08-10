@@ -58,9 +58,9 @@
       nodePreview+=("${preview}")
 
     done
-#    maxDepth=$(for element in "${nodeDepths[@]}"; do echo "$element"; done | sort -n | tail -n 1)
-#    maxTitleLength=$(for element in "${nodeTitles[@]}"; do echo "$element"; done | sort -n | tail -n 1 | wc -c)
-#    padSeed=$(( ${maxDepth} + ${maxTitleLength} ))
+    maxDepth=$(for element in "${nodeDepths[@]}"; do echo "$element"; done | sort -n | tail -n 1)
+    maxTitleLength=$(for element in "${nodeTitles[@]}"; do echo "$element"; done | sort -n | tail -n 1 | wc -c)
+    padSeed="$(( ${maxDepth} + ${maxTitleLength} ))"
 
   }
 }
@@ -70,13 +70,13 @@
   # 冒頭取得
   # 対象ノードの冒頭n文字を取得する。ノードの1行目はタイトルなので2行目以降
   # 引数1:対象ノード番号
-  # 引数2:取得文字
+  # 引数2:調整文字数(現在固定値)
   # 標準出力:対象ノードの冒頭
   ##############################################################################
   function getOutset {
     
     local selectNode="${1}"
-    local getCharactorAmount="${2}"
+    local getCharactorAmount="$(( (${maxChar} / 2) - ${padSeed} - ${2} - 20 ))"
 
     local startLineGetOutset="$( getLineNo ${selectNode} 1 )"
     local endLineGetOutset="$(   getLineNo ${selectNode} 9 )"
@@ -86,7 +86,7 @@
       outset=''
     else
       startLineGetOutset="$(( ${startLineGetOutset} + 1 ))"
-      outset="$( cat ${inputFile} | sed -n ${startLineGetOutset}p  | tr -d '\r\n' )"
+      outset="$( cat ${inputFile} | sed -n ${startLineGetOutset},${endLineGetOutset}p  | tr -d '\r\n' )"
       outset="${outset:0:${getCharactorAmount}}"
     fi
 
@@ -281,7 +281,6 @@
   # 引数2: 終了グループ番号
   ##############################################################################
   function tree {
-
     local startNodeSelectGroup="${1}"
     local endNodeSelectGroup="${2}"
 
@@ -314,8 +313,6 @@
         titleLength="${nodeTitles[ $(( cnt-1 )) ]}"
         titleLength="${#titleLength}"
 
-        padding="$(( ${padSeed} - ${depth} - ${titleLength} ))"
-
         printf "%06d" "${cnt}"
 
         case "${char2}" in
@@ -331,26 +328,24 @@
         seq ${depth} | while read -r line; do printf '  '; done
         
         case "${depth}" in
-          '1') printf '📚️ '
+          '1') printf '📚️'
               ;;
-          [2]) printf '└📗 '
+          [2]) printf '└📗'
               ;;
-          [34]) printf '└📖 '
+          [34]) printf '└📖'
                 ;;
-          [567]) printf '└📄 '
+          [567]) printf '└📄'
                 ;;
-          [89]) printf '└🏷️ '
+          [89]) printf '└🏷️'
                 ;;
-          '10')  printf '└🗨️ '
+          '10')  printf '└🗨️'
                 ;;        
-          *) printf '└🗨️ '
+          *) printf '└🗨️'
             ;;
         esac 
-        printf "$( getNodeTitle ${cnt} ) "
+        printf "【$( getNodeTitle ${cnt} )】"
+        echo "…………${nodePreview[$((${cnt}-1))]}"
 
-        #echo ${padding} | while read -r line; do printf '……'; done
-		printf '…………'
-        echo "${nodePreview[$((${cnt}-1))]}"
 
       done
 
@@ -828,6 +823,9 @@
   # 初期処理
   ##############################################################################
   function myInit {
+
+    #横幅取得
+    maxChar="$( tput cols )"
 
     #ノード検出
     detectNode
