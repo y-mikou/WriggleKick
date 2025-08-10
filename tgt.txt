@@ -1,9 +1,12 @@
 .title
 タイトルだよne3
 ああ
-aaaananika
+aaaana
 ..New Node3
-dsfdf
+ dsfdfaaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananika
+ aaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananika
+ aaaananikaaaaananika
+ aaaananikaaaaananikaaaaananika
 ...depth2-1
 fsdfs
 sdffsdf

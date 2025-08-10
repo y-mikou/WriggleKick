@@ -27,7 +27,7 @@
     nodeEndLines=()
     nodeDepths=()
     nodeTitles=()
-    # nodePreview=()
+    nodePreview=()
 
     for i in $(seq 1 ${maxNodeCnt}); do
       local entry="${indexlist[$((i-1))]}"
@@ -54,13 +54,13 @@
       nodeDepths+=("${depth}")
       nodeTitles+=("${title}")
 
-      # local preview="$( getOutset ${i} 10 )"
-      # nodePreview+=("${preview}")
+      local preview="$( getOutset ${i} 30 )"
+      nodePreview+=("${preview}")
 
     done
-    # maxDepth=$(for element in "${nodeDepths[@]}"; do echo "$element"; done | sort -n | tail -n 1)
-    # maxTitleLength=$(for element in "${nodeTitles[@]}"; do echo "$element"; done | sort -n | tail -n 1 | wc -c)
-    # padSeed=$(( ${maxDepth} + ${maxTitleLength} ))
+#    maxDepth=$(for element in "${nodeDepths[@]}"; do echo "$element"; done | sort -n | tail -n 1)
+#    maxTitleLength=$(for element in "${nodeTitles[@]}"; do echo "$element"; done | sort -n | tail -n 1 | wc -c)
+#    padSeed=$(( ${maxDepth} + ${maxTitleLength} ))
 
   }
 }
@@ -86,7 +86,7 @@
       outset=''
     else
       startLineGetOutset="$(( ${startLineGetOutset} + 1 ))"
-      outset="$( cat ${inputFile} | sed -n ${startLineGetOutset}p  | tr -d '\n' )"
+      outset="$( cat ${inputFile} | sed -n ${startLineGetOutset}p  | tr -d '\r\n' )"
       outset="${outset:0:${getCharactorAmount}}"
     fi
 
@@ -346,11 +346,11 @@
           *) printf '└🗨️ '
             ;;
         esac 
-        echo "$( getNodeTitle ${cnt} )"
+        printf "$( getNodeTitle ${cnt} ) "
 
-        # printf "$( getNodeTitle ${cnt} )"
-        # seq ${padding} | while read -r line; do printf '  '; done
-        # echo "${nodePreview[$((${cnt}-1))]}"
+        #echo ${padding} | while read -r line; do printf '……'; done
+		printf '…………'
+        echo "${nodePreview[$((${cnt}-1))]}"
 
       done
 
