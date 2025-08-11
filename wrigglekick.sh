@@ -2,11 +2,13 @@
 
 : "ノード検出" && {
   ##############################################################################
+  # グローバル配列
   ##############################################################################
   declare -a nodeStartLines
   declare -a nodeEndLines
   declare -a nodeDepths
   declare -a nodeTitles
+  declare -a nodePreview
 
   ##############################################################################
   # ノード検出
@@ -25,13 +27,16 @@
     nodeEndLines=()
     nodeDepths=()
     nodeTitles=()
+    nodePreview=()
+
+    paddingTitleAndPreview=4
 
     for i in $(seq 1 ${maxNodeCnt}); do
       local entry="${indexlist[$((i-1))]}"
       local startLine="${entry%%:*}"
-      local content="${entry#*:}"
-      
+      local content="${entry#*:}"      
       local endLine
+
       if [[ ${i} -ne ${maxNodeCnt} ]]; then
         local nextEntry="${indexlist[${i}]}"
         local nextStartLine="${nextEntry%%:*}"
@@ -45,15 +50,56 @@
       depth="${#depth}"
       
       local title="${content##*.}"
-      
+
       nodeStartLines+=("${startLine}")
       nodeEndLines+=("${endLine}")
       nodeDepths+=("${depth}")
       nodeTitles+=("${title}")
+
     done
+
+    maxDepth=$(for element in "${nodeDepths[@]}"; do echo "$element"; done | sort -n | tail -n 1)
+    maxTitleLength=$(for element in "${nodeTitles[@]}"; do echo "$element"; done | sort -n | tail -n 1 | wc -c)
+    padSeed="$(( ${maxDepth} + ${maxTitleLength} + ${paddingTitleAndPreview}))"
+
+    # getCharactorAmount="$(( (${maxRowLength} - 30 - ${padSeed})/2 ))"
+    # for i in $(seq 1 ${maxNodeCnt}); do
+    #   local preview="$( getOutset ${i} )"
+    #   nodePreview+=("${preview}")
+    # done    
 
   }
 }
+
+: "冒頭取得" && {
+  ##############################################################################
+  # 冒頭取得
+  # 対象ノードの冒頭n文字を取得する。ノードの1行目はタイトルなので2行目以降
+  # 引数1:対象ノード番号(
+  # 引数2:調整文字数(現在固定値)
+  # 標準出力:対象ノードの冒頭
+  ##############################################################################
+  function getOutset {
+    
+    local selectNode="${1}"
+
+    local startLineGetOutset="$( getLineNo ${selectNode} 1 )"
+    local endLineGetOutset="$(   getLineNo ${selectNode} 9 )"
+    local outset=''
+
+    if [[ ${startLineGetOutset} -eq ${endLineGetOutset} ]] ; then
+      outset=''
+    else
+      startLineGetOutset="$(( ${startLineGetOutset} + 1 ))"
+      outset="$( cat ${inputFile} | sed -n ${startLineGetOutset},${endLineGetOutset}p  | tr -d '\r\n' | tr -d '\n' )"
+      outset="${outset:0:${getCharactorAmount}}"
+    fi
+
+    echo "${outset}"
+
+  }
+}
+
 
 : "深さ取得" && {
   ##############################################################################
@@ -85,7 +131,7 @@
     local mode="${2}"
     local startLine="${nodeStartLines[$((selectNodeNo-1))]}"
     local endLine="${nodeEndLines[$((selectNodeNo-1))]}"
-    
+
     case "${mode}" in
       '') echo "${startLine} ${endLine}" ;;
       1) echo  "${startLine}" ;;
@@ -158,7 +204,7 @@
   ##############################################################################
   function getTargetNodeNoInGroup {
     local selectNodeNo="${1}"
-     local direction="${2}"
+    local direction="${2}"
     local mode="${3}"
     local selectNodeDepth="$( getDepth ${selectNodeNo} )"
 
@@ -240,67 +286,115 @@
   # 引数2: 終了グループ番号
   ##############################################################################
   function tree {
-
     local startNodeSelectGroup="${1}"
     local endNodeSelectGroup="${2}"
-
+    # echo "${maxRowLength}" 
     printf "【$(basename ${inputFile})】"
     case "${char1}" in
       't')  echo '';;
       'f')  echo " ★ フォーカス表示中";;
       *)    echo '';;
     esac
-
     case "${char2}" in
-      '')  echo 'ノード  アウトライン'
-            echo '------+------------'
+      '') printf 'ノード  アウトライン'
+          printf "%$((${maxTitleLength}-2))s"
+          if [[ ${maxRowLength} -gt 30 ]] ; then
+            echo '冒頭'
+          else
+            printf '\n'
+          fi
+          printf '======+'
+          tmp=8
+          ;;
+      'l')  printf 'ノード 行番号    アウトライン'
+            printf "%$((${maxTitleLength}-2))s"
+            if [[ ${maxRowLength} -gt 30 ]] ; then
+              echo '冒頭'
+            else
+              printf '\n'
+            fi
+            printf '======+========+'
+            tmp=16
             ;;
-      'l') echo 'ノード 行番号    アウトライン'
-            echo '------+--------+------------'
+      'a')  printf 'ノード 行番号            深さ アウトライン'
+            printf "%$((${maxTitleLength}-2))s"
+            if [[ ${maxRowLength} -gt 30 ]] ; then
+              echo '冒頭'
+            else
+              printf '\n'
+            fi
+            printf '======+========+========+===+'
+            tmp=30
             ;;
-      'a') echo 'ノード 行番号            深さ アウトライン'
-            echo '------+--------+--------+---+------------'
-            ;;
-      *)    ;;
+      *)     ;;
     esac
+
+    getCharactorAmount="$(( (${maxRowLength} - ${tmp} - ${padSeed})/2 -1 ))"
+    
+    for i in $(seq 1 ${maxNodeCnt}); do
+      local preview="$( getOutset ${i} )"
+      nodePreview+=("${preview}")
+    done    
+
+    if [[ ${maxRowLength} -gt 30 ]] ; then
+      printf "%${padSeed}s+%$((${getCharactorAmount}*2 -1 ))s\n" | tr ' ' =
+    else
+      printf "%${padSeed}s\n" | tr ' ' =
+    fi
 
     seq "${startNodeSelectGroup}" "${endNodeSelectGroup}" | {
       while read -r cnt ; do
-      startLine="$( getLineNo ${cnt} 1 )"
-      endLine="$(   getLineNo ${cnt} 9 )"
-      depth="$( getDepth ${cnt} )"
+        startLine="$( getLineNo ${cnt} 1 )"
+        endLine="$(   getLineNo ${cnt} 9 )"
+        depth="$( getDepth ${cnt} )"
 
+        titleLength="${nodeTitles[ $(( cnt-1 )) ]}"
+        titleLength="${#titleLength}"
 
-      printf "%06d" "${cnt}"
-      case "${char2}" in
-        '')  :
-              ;;
-        'l') printf " %08d" "${startLine}"
-              ;;
-        'a') printf " %08d~%08d %03d" "${startLine}" "${endLine}" "${depth}"
-              ;;
-        *)    ;;
-      esac
+        if [[ ${depth} -eq 1 ]] ; then
+          local spCnt=$(( ${padSeed} - ${titleLength} - ${depth} -4 ))
+        else
+          local spCnt=$(( ${padSeed} - ${titleLength} - ${depth} -5 ))
+        fi
 
-      seq ${depth} | while read -r line; do printf '  '; done
+        printf "%06d" "${cnt}"
+
+        case "${char2}" in
+          '')  :
+                ;;
+          'l') printf " %08d" "${startLine}"
+                ;;
+          'a') printf " %08d~%08d %03d" "${startLine}" "${endLine}" "${depth}"
+                ;;
+          *)    ;;
+        esac
+
+        seq ${depth} | while read -r line; do printf ' '; done
+        
         case "${depth}" in
-          '1') printf '📚️ '
+          '1') printf '📚️'
               ;;
-          [2]) printf '└📗 '
+          '2') printf '└📗'
               ;;
-          [34]) printf '└📖 '
+          [34]) printf '└📖'
                 ;;
-          [567]) printf '└📄 '
+          [567]) printf '└📄'
                 ;;
-          [89]) printf '└🏷️ '
+          [89]) printf '└🏷️'
                 ;;
-          '10')  printf '└🗨️ '
+          '10')  printf '└🗨️'
                 ;;        
-          *) printf '└🗨️ '
+          *) printf '└🗨️'
             ;;
         esac 
-        echo "$( getNodeTitle ${cnt} )"
+        printf "【$( getNodeTitle ${cnt} )】"
+
+        printf "%${spCnt}s"
+
+        echo "${nodePreview[$((${cnt}-1))]}"
+
       done
+
     }
 
     echo '❓️引数なしでhelp参照'
@@ -776,6 +870,9 @@
   ##############################################################################
   function myInit {
 
+    #横幅取得
+    maxRowLength="$( tput cols )"
+
     #ノード検出
     detectNode
     
@@ -831,8 +928,29 @@
 
     if [[ -f ${inputFile} ]] && [[ ${#action} = 0 ]] ; then
       bash "${0}" "${inputFile}" 't'
-      return 0
+      exit 0
     fi
+
+    if [[ ${action} = 'ta' ]] && [[ ${maxRowLength} -le 50 ]] ; then
+      if [[ ${maxRowLength} -le 40 ]] ; then
+        echo "画面の横幅が足りないため表示を縮退します"
+        read -s -n 1 c
+        bash "${0}" "${inputFile}" 't'
+        exit 0
+      else
+        echo "画面の横幅が足りないため表示を縮退します"
+        read -s -n 1 c
+        bash "${0}" "${inputFile}" 'tl'
+        exit 0
+      fi
+    fi
+    if [[ ${action} = 'tl' ]] && [[ ${maxRowLength} -le 40 ]] ; then
+      echo "画面の横幅が足りないため表示を縮退します"
+      read -s -n 1 c
+      bash "${0}" "${inputFile}" 't'
+      exit 0
+    fi
+
 
     ######################################
     #バックアップ作成
@@ -858,7 +976,7 @@
     local depth=$(getDepth ${indexNo})
 
     #動作指定のチェック
-    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd')
+    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'x')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -ne 0 ]] ; then
       echo '引数2:無効なアクションです'
@@ -1035,6 +1153,8 @@
     clear
 
     case "${char1}" in
+      'x')  getOutset "${indexNo}" 10
+            ;;
       'h')  displayHelp
             ;;
       't')  displayTree
