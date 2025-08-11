@@ -358,20 +358,11 @@
         titleLength="${nodeTitles[ $(( cnt-1 )) ]}"
         titleLength="${#titleLength}"
 
-        local iconWidth=2
-        if [[ ${depth} -gt 1 ]] ; then
-          iconWidth=3
+        if [[ ${depth} -eq 1 ]] ; then
+          local spCnt=$(( ${operationPadSeed} - ${titleLength} - ${depth} -4 ))
+        else
+          local spCnt=$(( ${operationPadSeed} - ${titleLength} - ${depth} -5 ))
         fi
-        
-        local operationWidth=0
-        case "${char2}" in
-          'l') operationWidth=$((1 + ${lineColWidth}))
-               ;;
-          'a') operationWidth=$((1 + ${lineColWidth} + 1 + ${lineColWidth} + 1 + ${depthColWidth}))
-               ;;
-        esac
-        
-        local spCnt=$(( ${operationPadSeed} - ${nodeColWidth} - ${operationWidth} - ${titleLength} - ${depth} - ${iconWidth} ))
 
         printf "%0${nodeColWidth}d" "${cnt}"
 
