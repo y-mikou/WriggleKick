@@ -58,8 +58,8 @@
 
     done
 
-    maxDepth=$(for element in "${nodeDepths[@]}"; do echo "$element"; done | sort -n | tail -n 1)
-    maxTitleLength=$(for element in "${nodeTitles[@]}"; do echo "$element"; done | sort -n | tail -n 1 | wc -c)
+    maxDepth="$(for element in "${nodeDepths[@]}"; do echo "$element"; done | sort -n | tail -n 1)"
+    maxTitleLength="$(for element in "${nodeTitles[@]}"; do echo "$element"; done | sort -n | tail -n 1 | wc -c)"
     padSeed="$(( ${maxDepth} + ${maxTitleLength} + ${paddingTitleAndPreview}))"
 
     # getCharactorAmount="$(( (${maxRowLength} - 30 - ${padSeed})/2 ))"
@@ -297,34 +297,34 @@
     esac
     case "${char2}" in
       '') printf 'ノード  アウトライン'
-          printf "%$((${maxTitleLength}-2))s"
-          if [[ ${maxRowLength} -gt 30 ]] ; then
+          printf "%$((${maxTitleLength}-6))s"
+          if [[ ${maxRowLength} -gt 28 ]] ; then
             echo '冒頭'
           else
             printf '\n'
           fi
           printf '======+'
-          tmp=8
+          tmp=3
           ;;
       'l')  printf 'ノード 行番号    アウトライン'
-            printf "%$((${maxTitleLength}-2))s"
-            if [[ ${maxRowLength} -gt 30 ]] ; then
+            printf "%$((${maxTitleLength}-6))s"
+            if [[ ${maxRowLength} -gt 28 ]] ; then
               echo '冒頭'
             else
               printf '\n'
             fi
             printf '======+========+'
-            tmp=16
+            tmp=11
             ;;
       'a')  printf 'ノード 行番号            深さ アウトライン'
-            printf "%$((${maxTitleLength}-2))s"
-            if [[ ${maxRowLength} -gt 30 ]] ; then
+            printf "%$((${maxTitleLength}-6))s"
+            if [[ ${maxRowLength} -gt 28 ]] ; then
               echo '冒頭'
             else
               printf '\n'
             fi
             printf '======+========+========+===+'
-            tmp=30
+            tmp=25
             ;;
       *)     ;;
     esac
@@ -336,10 +336,10 @@
       nodePreview+=("${preview}")
     done    
 
-    if [[ ${maxRowLength} -gt 30 ]] ; then
-      printf "%${padSeed}s+%$((${getCharactorAmount}*2 -1 ))s\n" | tr ' ' =
+    if [[ ${maxRowLength} -gt 28 ]] ; then
+      printf "%$((${padSeed}-4))s+%$((${getCharactorAmount}*2 -1 ))s\n" | tr ' ' =
     else
-      printf "%${padSeed}s\n" | tr ' ' =
+      printf "%$((${padSeed}-4))s\n" | tr ' ' =
     fi
 
     seq "${startNodeSelectGroup}" "${endNodeSelectGroup}" | {
@@ -387,11 +387,15 @@
           *) printf '└🗨️'
             ;;
         esac 
-        printf "【$( getNodeTitle ${cnt} )】"
+        printf "$( getNodeTitle ${cnt} )"
 
         printf "%${spCnt}s"
 
-        echo "${nodePreview[$((${cnt}-1))]}"
+        if [[ ${maxRowLength} -gt 28 ]] ; then
+          echo "${nodePreview[$((${cnt}-1))]}"
+        else
+          printf '\n'
+        fi
 
       done
 
