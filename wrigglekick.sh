@@ -30,7 +30,6 @@
     nodePreview=()
 
     paddingTitleAndPreview=4
-    previewLength=50
 
     for i in $(seq 1 ${maxNodeCnt}); do
       local entry="${indexlist[$((i-1))]}"
@@ -57,13 +56,17 @@
       nodeDepths+=("${depth}")
       nodeTitles+=("${title}")
 
-      local preview="$( getOutset ${i} ${previewLength} )"
-      nodePreview+=("${preview}")
-
     done
+
     maxDepth=$(for element in "${nodeDepths[@]}"; do echo "$element"; done | sort -n | tail -n 1)
     maxTitleLength=$(for element in "${nodeTitles[@]}"; do echo "$element"; done | sort -n | tail -n 1 | wc -c)
     padSeed="$(( ${maxDepth} + ${maxTitleLength} + ${paddingTitleAndPreview}))"
+
+    # getCharactorAmount="$(( (${maxRowLength} - 30 - ${padSeed})/2 ))"
+    # for i in $(seq 1 ${maxNodeCnt}); do
+    #   local preview="$( getOutset ${i} )"
+    #   nodePreview+=("${preview}")
+    # done    
 
   }
 }
@@ -79,8 +82,6 @@
   function getOutset {
     
     local selectNode="${1}"
-
-    local getCharactorAmount="$(( (${maxChar}/2) - ${padSeed} + ${2} ))"
 
     local startLineGetOutset="$( getLineNo ${selectNode} 1 )"
     local endLineGetOutset="$(   getLineNo ${selectNode} 9 )"
@@ -287,34 +288,59 @@
   function tree {
     local startNodeSelectGroup="${1}"
     local endNodeSelectGroup="${2}"
-
+    # echo "${maxRowLength}" 
     printf "【$(basename ${inputFile})】"
     case "${char1}" in
       't')  echo '';;
       'f')  echo " ★ フォーカス表示中";;
       *)    echo '';;
     esac
-    # echo '1234567891123456789212345678931234567894123456789512345678961234567897123456789812345678991234567890'
     case "${char2}" in
-      '')  printf 'ノード  アウトライン'
-           printf "%$((${maxTitleLength}-2))s"
-           echo '冒頭'
-           printf '======+'
+      '') printf 'ノード  アウトライン'
+          printf "%$((${maxTitleLength}-2))s"
+          if [[ ${maxRowLength} -gt 30 ]] ; then
+            echo '冒頭'
+          else
+            printf '\n'
+          fi
+          printf '======+'
+          tmp=8
+          ;;
+      'l')  printf 'ノード 行番号    アウトライン'
+            printf "%$((${maxTitleLength}-2))s"
+            if [[ ${maxRowLength} -gt 30 ]] ; then
+              echo '冒頭'
+            else
+              printf '\n'
+            fi
+            printf '======+========+'
+            tmp=16
             ;;
-      'l') printf 'ノード 行番号    アウトライン'
-           printf "%$((${maxTitleLength}-2))s"
-           echo '冒頭'
-           printf '======+========+'
+      'a')  printf 'ノード 行番号            深さ アウトライン'
+            printf "%$((${maxTitleLength}-2))s"
+            if [[ ${maxRowLength} -gt 30 ]] ; then
+              echo '冒頭'
+            else
+              printf '\n'
+            fi
+            printf '======+========+========+===+'
+            tmp=30
             ;;
-      'a') printf 'ノード 行番号            深さ アウトライン'
-           printf "%$((${maxTitleLength}-2))s"
-           echo '冒頭'
-           printf '======+========+========+===+'
-            ;;
-      *)    ;;
+      *)     ;;
     esac
-    printf "%${padSeed}s+%${previewLength}s\n" | tr ' ' =
+
+    getCharactorAmount="$(( (${maxRowLength} - ${tmp} - ${padSeed})/2 -1 ))"
     
+    for i in $(seq 1 ${maxNodeCnt}); do
+      local preview="$( getOutset ${i} )"
+      nodePreview+=("${preview}")
+    done    
+
+    if [[ ${maxRowLength} -gt 30 ]] ; then
+      printf "%${padSeed}s+%$((${getCharactorAmount}*2 -1 ))s\n" | tr ' ' =
+    else
+      printf "%${padSeed}s\n" | tr ' ' =
+    fi
 
     seq "${startNodeSelectGroup}" "${endNodeSelectGroup}" | {
       while read -r cnt ; do
@@ -845,7 +871,7 @@
   function myInit {
 
     #横幅取得
-    maxChar="$( tput cols )"
+    maxRowLength="$( tput cols )"
 
     #ノード検出
     detectNode
@@ -902,8 +928,29 @@
 
     if [[ -f ${inputFile} ]] && [[ ${#action} = 0 ]] ; then
       bash "${0}" "${inputFile}" 't'
-      return 0
+      exit 0
     fi
+
+    if [[ ${action} = 'ta' ]] && [[ ${maxRowLength} -le 50 ]] ; then
+      if [[ ${maxRowLength} -le 40 ]] ; then
+        echo "画面の横幅が足りないため表示を縮退します"
+        read -s -n 1 c
+        bash "${0}" "${inputFile}" 't'
+        exit 0
+      else
+        echo "画面の横幅が足りないため表示を縮退します"
+        read -s -n 1 c
+        bash "${0}" "${inputFile}" 'tl'
+        exit 0
+      fi
+    fi
+    if [[ ${action} = 'tl' ]] && [[ ${maxRowLength} -le 40 ]] ; then
+      echo "画面の横幅が足りないため表示を縮退します"
+      read -s -n 1 c
+      bash "${0}" "${inputFile}" 't'
+      exit 0
+    fi
+
 
     ######################################
     #バックアップ作成
