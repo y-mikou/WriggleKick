@@ -29,6 +29,9 @@
     nodeTitles=()
     nodePreview=()
 
+    paddingTitleAndPreview=4
+    previewLength=50
+
     for i in $(seq 1 ${maxNodeCnt}); do
       local entry="${indexlist[$((i-1))]}"
       local startLine="${entry%%:*}"
@@ -54,13 +57,13 @@
       nodeDepths+=("${depth}")
       nodeTitles+=("${title}")
 
-      local preview="$( getOutset ${i} 50 )"
+      local preview="$( getOutset ${i} ${previewLength} )"
       nodePreview+=("${preview}")
 
     done
     maxDepth=$(for element in "${nodeDepths[@]}"; do echo "$element"; done | sort -n | tail -n 1)
     maxTitleLength=$(for element in "${nodeTitles[@]}"; do echo "$element"; done | sort -n | tail -n 1 | wc -c)
-    padSeed="$(( ${maxDepth} + ${maxTitleLength} ))"
+    padSeed="$(( ${maxDepth} + ${maxTitleLength} + ${paddingTitleAndPreview}))"
 
   }
 }
@@ -69,7 +72,7 @@
   ##############################################################################
   # 冒頭取得
   # 対象ノードの冒頭n文字を取得する。ノードの1行目はタイトルなので2行目以降
-  # 引数1:対象ノード番号
+  # 引数1:対象ノード番号(
   # 引数2:調整文字数(現在固定値)
   # 標準出力:対象ノードの冒頭
   ##############################################################################
@@ -77,7 +80,7 @@
     
     local selectNode="${1}"
 
-    local getCharactorAmount="$(( ${maxChar}/2 - ${padSeed} + ${2} ))"
+    local getCharactorAmount="$(( (${maxChar}/2) - ${padSeed} + ${2} ))"
 
     local startLineGetOutset="$( getLineNo ${selectNode} 1 )"
     local endLineGetOutset="$(   getLineNo ${selectNode} 9 )"
@@ -87,8 +90,8 @@
       outset=''
     else
       startLineGetOutset="$(( ${startLineGetOutset} + 1 ))"
-      outset="$( cat ${inputFile} | sed -n ${startLineGetOutset},${endLineGetOutset}p  | tr -d '\r\n' )"
-      outset="…………${outset:0:${getCharactorAmount}}"
+      outset="$( cat ${inputFile} | sed -n ${startLineGetOutset},${endLineGetOutset}p  | tr -d '\r\n' | tr -d '\n' )"
+      outset="${outset:0:${getCharactorAmount}}"
     fi
 
     echo "${outset}"
@@ -291,19 +294,27 @@
       'f')  echo " ★ フォーカス表示中";;
       *)    echo '';;
     esac
-
+    # echo '1234567891123456789212345678931234567894123456789512345678961234567897123456789812345678991234567890'
     case "${char2}" in
-      '')  echo 'ノード  アウトライン'
-            echo '------+------------'
+      '')  printf 'ノード  アウトライン'
+           printf "%$((${maxTitleLength}-2))s"
+           echo '冒頭'
+           printf '======+'
             ;;
-      'l') echo 'ノード 行番号    アウトライン'
-            echo '------+--------+------------'
+      'l') printf 'ノード 行番号    アウトライン'
+           printf "%$((${maxTitleLength}-2))s"
+           echo '冒頭'
+           printf '======+========+'
             ;;
-      'a') echo 'ノード 行番号            深さ アウトライン'
-            echo '------+--------+--------+---+------------'
+      'a') printf 'ノード 行番号            深さ アウトライン'
+           printf "%$((${maxTitleLength}-2))s"
+           echo '冒頭'
+           printf '======+========+========+===+'
             ;;
       *)    ;;
     esac
+    printf "%${padSeed}s+%${previewLength}s\n" | tr ' ' =
+    
 
     seq "${startNodeSelectGroup}" "${endNodeSelectGroup}" | {
       while read -r cnt ; do
@@ -313,6 +324,12 @@
 
         titleLength="${nodeTitles[ $(( cnt-1 )) ]}"
         titleLength="${#titleLength}"
+
+        if [[ ${depth} -eq 1 ]] ; then
+          local spCnt=$(( ${padSeed} - ${titleLength} - ${depth} -4 ))
+        else
+          local spCnt=$(( ${padSeed} - ${titleLength} - ${depth} -5 ))
+        fi
 
         printf "%06d" "${cnt}"
 
@@ -326,12 +343,12 @@
           *)    ;;
         esac
 
-        seq ${depth} | while read -r line; do printf '  '; done
+        seq ${depth} | while read -r line; do printf ' '; done
         
         case "${depth}" in
           '1') printf '📚️'
               ;;
-          [2]) printf '└📗'
+          '2') printf '└📗'
               ;;
           [34]) printf '└📖'
                 ;;
@@ -345,8 +362,10 @@
             ;;
         esac 
         printf "【$( getNodeTitle ${cnt} )】"
-        echo "${nodePreview[$((${cnt}-1))]}"
 
+        printf "%${spCnt}s"
+
+        echo "${nodePreview[$((${cnt}-1))]}"
 
       done
 
