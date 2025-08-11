@@ -296,40 +296,40 @@
       *)    echo '';;
     esac
     case "${char2}" in
-      '') printf 'ノード  アウトライン'
-          printf "%$((${maxTitleLength}-6))s"
+      '') printf '節   アウトライン'
+          printf "%$((${maxTitleLength}-5))s"
           if [[ ${maxRowLength} -gt 28 ]] ; then
             echo '冒頭'
           else
             printf '\n'
           fi
-          printf '======+'
+          printf '====+'
           tmp=3
           ;;
-      'l')  printf 'ノード 行番号    アウトライン'
-            printf "%$((${maxTitleLength}-6))s"
+      'l')  printf '節   行番号   アウトライン'
+            printf "%$((${maxTitleLength}-5))s"
             if [[ ${maxRowLength} -gt 28 ]] ; then
               echo '冒頭'
             else
               printf '\n'
             fi
-            printf '======+========+'
+            printf '====+========+'
             tmp=11
             ;;
-      'a')  printf 'ノード 行番号            深さ アウトライン'
-            printf "%$((${maxTitleLength}-6))s"
+      'a')  printf '節   行番号            深  アウトライン'
+            printf "%$((${maxTitleLength}-5))s"
             if [[ ${maxRowLength} -gt 28 ]] ; then
               echo '冒頭'
             else
               printf '\n'
             fi
-            printf '======+========+========+===+'
+            printf '====+========+========+===+'
             tmp=25
             ;;
       *)     ;;
     esac
 
-    getCharactorAmount="$(( (${maxRowLength} - ${tmp} - ${padSeed})/2 -1 ))"
+    getCharactorAmount="$(( (${maxRowLength} - ${tmp} - ${padSeed})/2 ))"
     
     for i in $(seq 1 ${maxNodeCnt}); do
       local preview="$( getOutset ${i} )"
@@ -357,7 +357,7 @@
           local spCnt=$(( ${padSeed} - ${titleLength} - ${depth} -5 ))
         fi
 
-        printf "%06d" "${cnt}"
+        printf "%04d" "${cnt}"
 
         case "${char2}" in
           '')  :
