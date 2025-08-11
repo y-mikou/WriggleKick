@@ -283,7 +283,7 @@
         *)    ;;
       esac
 
-      seq ${depth} | while read -r line; do printf '  '; done
+      seq ${depth} | while read -r line; do printf ' '; done
         case "${depth}" in
           '1') printf '📚️ '
               ;;
