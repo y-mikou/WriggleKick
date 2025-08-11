@@ -68,6 +68,35 @@
   }
 }
 
+: "桁数計算" && {
+  ##############################################################################
+  # グローバル変数設定: nodeColWidth, lineColWidth, depthColWidth, operationPadSeed
+  ##############################################################################
+  function calculateColumnWidths {
+    local operation="${1}"
+    
+    local nodeDigits="${#maxNodeCnt}"
+    nodeColWidth=$((nodeDigits < 6 ? 6 : nodeDigits))
+    
+    local lineDigits="${#maxLineCnt}"
+    lineColWidth=$((lineDigits < 8 ? 8 : lineDigits))
+    
+    local depthDigits="${#maxDepth}"
+    depthColWidth=$((depthDigits < 3 ? 3 : depthDigits))
+    
+    case "${operation:1:1}" in
+      '')  operationPadSeed="$(( ${maxDepth} + ${maxTitleLength} + ${paddingTitleAndPreview} + ${nodeColWidth} ))"
+           ;;
+      'l') operationPadSeed="$(( ${maxDepth} + ${maxTitleLength} + ${paddingTitleAndPreview} + ${nodeColWidth} + 1 + ${lineColWidth} ))"
+           ;;
+      'a') operationPadSeed="$(( ${maxDepth} + ${maxTitleLength} + ${paddingTitleAndPreview} + ${nodeColWidth} + 1 + ${lineColWidth} + 1 + ${lineColWidth} + 1 + ${depthColWidth} ))"
+           ;;
+      *)   operationPadSeed="${padSeed}"
+           ;;
+    esac
+  }
+}
+
 : "冒頭取得" && {
   ##############################################################################
   # 冒頭取得
@@ -79,8 +108,10 @@
   function getOutset {
     
     local selectNode="${1}"
-
-    local getCharactorAmount="$(( (${maxChar}/2) - ${padSeed} + ${2} ))"
+    local adjustLength="${2:-0}"
+    
+    calculateColumnWidths "${action}"
+    local getCharactorAmount="$(( (${maxChar}/2) - ${operationPadSeed} + ${adjustLength} ))"
 
     local startLineGetOutset="$( getLineNo ${selectNode} 1 )"
     local endLineGetOutset="$(   getLineNo ${selectNode} 9 )"
@@ -287,6 +318,8 @@
   function tree {
     local startNodeSelectGroup="${1}"
     local endNodeSelectGroup="${2}"
+    
+    calculateColumnWidths "${action}"
 
     printf "【$(basename ${inputFile})】"
     case "${char1}" in
@@ -296,24 +329,24 @@
     esac
     # echo '1234567891123456789212345678931234567894123456789512345678961234567897123456789812345678991234567890'
     case "${char2}" in
-      '')  printf 'ノード  アウトライン'
+      '')  printf 'ノード%*s アウトライン' "$((nodeColWidth-6))" ""
            printf "%$((${maxTitleLength}-2))s"
            echo '冒頭'
-           printf '======+'
+           printf '%*s+' "${nodeColWidth}" "" | tr ' ' =
             ;;
-      'l') printf 'ノード 行番号    アウトライン'
+      'l') printf 'ノード%*s 行番号%*s アウトライン' "$((nodeColWidth-6))" "" "$((lineColWidth-6))" ""
            printf "%$((${maxTitleLength}-2))s"
            echo '冒頭'
-           printf '======+========+'
+           printf '%*s+%*s+' "${nodeColWidth}" "" "${lineColWidth}" "" | tr ' ' =
             ;;
-      'a') printf 'ノード 行番号            深さ アウトライン'
+      'a') printf 'ノード%*s 行番号%*s 深さ%*s アウトライン' "$((nodeColWidth-6))" "" "$((lineColWidth*2+1-6))" "" "$((depthColWidth-4))" ""
            printf "%$((${maxTitleLength}-2))s"
            echo '冒頭'
-           printf '======+========+========+===+'
+           printf '%*s+%*s+%*s+%*s+' "${nodeColWidth}" "" "${lineColWidth}" "" "${lineColWidth}" "" "${depthColWidth}" "" | tr ' ' =
             ;;
       *)    ;;
     esac
-    printf "%${padSeed}s+%${previewLength}s\n" | tr ' ' =
+    printf "%${operationPadSeed}s+%${previewLength}s\n" | tr ' ' =
     
 
     seq "${startNodeSelectGroup}" "${endNodeSelectGroup}" | {
@@ -326,19 +359,19 @@
         titleLength="${#titleLength}"
 
         if [[ ${depth} -eq 1 ]] ; then
-          local spCnt=$(( ${padSeed} - ${titleLength} - ${depth} -4 ))
+          local spCnt=$(( ${operationPadSeed} - ${titleLength} - ${depth} -4 ))
         else
-          local spCnt=$(( ${padSeed} - ${titleLength} - ${depth} -5 ))
+          local spCnt=$(( ${operationPadSeed} - ${titleLength} - ${depth} -5 ))
         fi
 
-        printf "%06d" "${cnt}"
+        printf "%0${nodeColWidth}d" "${cnt}"
 
         case "${char2}" in
           '')  :
                 ;;
-          'l') printf " %08d" "${startLine}"
+          'l') printf " %0${lineColWidth}d" "${startLine}"
                 ;;
-          'a') printf " %08d~%08d %03d" "${startLine}" "${endLine}" "${depth}"
+          'a') printf " %0${lineColWidth}d~%0${lineColWidth}d %0${depthColWidth}d" "${startLine}" "${endLine}" "${depth}"
                 ;;
           *)    ;;
         esac
