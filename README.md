@@ -1,11 +1,9 @@
 - 当スクリプトはまだ作成中です。
 - READMEは「仕様」ではなく「作りたいもの」が書いてあります。
 - コロコロ変わります。READMEが一番更新頻度が高いまである。
-
 ---
-![Image](https://github.com/user-attachments/assets/c2b18610-6ccc-4b08-83ed-9837321dcf60)
 
-![Image](https://github.com/user-attachments/assets/48710101-aa56-4f78-ab43-f4d77f3ff51d)
+![Image]([https://github.com/user-attachments/assets/c2b18610-6ccc-4b08-83ed-9837321dcf60](https://github.com/user-attachments/assets/2508f065-bff9-4540-9135-8f306fe27f92))
 
 ---
 
