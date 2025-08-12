@@ -47,7 +47,6 @@ sss
 
 ....node2-1
 aqqq
-....node2-2
 qqq
 qqqq
 qqq
