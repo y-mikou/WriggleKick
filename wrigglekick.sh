@@ -59,7 +59,7 @@
     done
 
     maxDepth="$(for element in "${nodeDepths[@]}"; do echo "$element"; done | sort -n | tail -n 1)"
-    maxTitleLength="$(for element in "${nodeTitles[@]}"; do echo "$element"; done | sort -n | tail -n 1 | wc -c)"
+    maxTitleLength="$(for element in "${#nodeTitles[@]}"; do echo "$element"; done | sort -n | tail -n 1 )"
     padSeed="$(( ${maxDepth} + ${maxTitleLength} + ${paddingTitleAndPreview}))"
 
   }
@@ -282,7 +282,7 @@
   function tree {
     local startNodeSelectGroup="${1}"
     local endNodeSelectGroup="${2}"
-    # echo "${maxRowLength}" 
+
     printf "【$(basename ${inputFile})】"
     case "${char1}" in
       't')  echo '';;
@@ -298,7 +298,7 @@
             printf '\n'
           fi
           printf '====+'
-          tmp=3
+          tmp=5
           ;;
       'l')  printf '節   行番号   アウトライン'
             printf "%$((${maxTitleLength}-5))s"
@@ -308,7 +308,7 @@
               printf '\n'
             fi
             printf '====+========+'
-            tmp=11
+            tmp=13
             ;;
       'a')  printf '節   行番号            深  アウトライン'
             printf "%$((${maxTitleLength}-5))s"
@@ -318,7 +318,7 @@
               printf '\n'
             fi
             printf '====+========+========+===+'
-            tmp=25
+            tmp=27
             ;;
       *)     ;;
     esac
@@ -382,11 +382,12 @@
             ;;
         esac 
         printf "$( getNodeTitle ${cnt} )"
+        len=$( getNodeTitle ${cnt} )
 
         printf "%${spCnt}s"
-
+        
         if [[ ${maxRowLength} -gt 28 ]] ; then
-          echo "${nodePreview[$((${cnt}-1))]}"
+          echo "${nodePreview[${cnt}]}"
         else
           printf '\n'
         fi
