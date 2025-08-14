@@ -58,42 +58,8 @@
 
     done
 
-    maxDepth="$(for element in "${nodeDepths[@]}"; do echo "$element"; done | sort -n | tail -n 1)"
-    maxTitleLength="$(for element in "${#nodeTitles[@]}"; do echo "$element"; done | sort -n | tail -n 1 )"
-    padSeed="$(( ${maxDepth} + ${maxTitleLength} + ${paddingTitleAndPreview}))"
-
   }
 }
-
-: "冒頭取得" && {
-  ##############################################################################
-  # 冒頭取得
-  # 対象ノードの冒頭n文字を取得する。ノードの1行目はタイトルなので2行目以降
-  # 引数1:対象ノード番号(
-  # 引数2:調整文字数(現在固定値)
-  # 標準出力:対象ノードの冒頭
-  ##############################################################################
-  function getOutset {
-    
-    local selectNode="${1}"
-
-    local startLineGetOutset="$( getLineNo ${selectNode} 1 )"
-    local endLineGetOutset="$(   getLineNo ${selectNode} 9 )"
-    local outset=''
-
-    if [[ ${startLineGetOutset} -eq ${endLineGetOutset} ]] ; then
-      outset=''
-    else
-      startLineGetOutset="$(( ${startLineGetOutset} + 1 ))"
-      outset="$( cat ${inputFile} | sed -n ${startLineGetOutset},${endLineGetOutset}p  | tr -d '\r\n' | tr -d '\n' )"
-      outset="${outset:0:${getCharactorAmount}}"
-    fi
-
-    echo "${outset}"
-
-  }
-}
-
 
 : "深さ取得" && {
   ##############################################################################
@@ -290,66 +256,23 @@
       *)    echo '';;
     esac
     case "${char2}" in
-      '') printf '節   アウトライン'
-          printf "%$((${maxTitleLength}-5))s"
-          if [[ ${maxRowLength} -gt 28 ]] ; then
-            echo '冒頭'
-          else
-            printf '\n'
-          fi
-          printf '====+'
-          tmp=5
+      '') echo '節   アウトライン'
+          echo '====+============'
           ;;
-      'l')  printf '節   行番号   アウトライン'
-            printf "%$((${maxTitleLength}-5))s"
-            if [[ ${maxRowLength} -gt 28 ]] ; then
-              echo '冒頭'
-            else
-              printf '\n'
-            fi
-            printf '====+========+'
-            tmp=13
+      'l')  echo '節   行番号   アウトライン'
+            echo '====+========+============'
             ;;
-      'a')  printf '節   行番号            深  アウトライン'
-            printf "%$((${maxTitleLength}-5))s"
-            if [[ ${maxRowLength} -gt 28 ]] ; then
-              echo '冒頭'
-            else
-              printf '\n'
-            fi
-            printf '====+========+========+===+'
-            tmp=27
+      'a')  echo '節   行番号            深  アウトライン'
+            echo '====+========+========+===+============'
             ;;
-      *)     ;;
+      *)    ;;
     esac
-
-    getCharactorAmount="$(( (${maxRowLength} - ${tmp} - ${padSeed})/2 ))"
-    
-    for i in $(seq 1 ${maxNodeCnt}); do
-      local preview="$( getOutset ${i} )"
-      nodePreview+=("${preview}")
-    done    
-
-    if [[ ${maxRowLength} -gt 28 ]] ; then
-      printf "%$((${padSeed}-4))s+%$((${getCharactorAmount}*2 -1 ))s\n" | tr ' ' =
-    else
-      printf "%$((${padSeed}-4))s\n" | tr ' ' =
-    fi
 
     seq "${startNodeSelectGroup}" "${endNodeSelectGroup}" | {
       while read -r cnt ; do
         startLine="$( getLineNo ${cnt} 1 )"
         endLine="$(   getLineNo ${cnt} 9 )"
         depth="$( getDepth ${cnt} )"
-
-        titleLength="${nodeTitles[ $(( cnt-1 )) ]}"
-        titleLength="${#titleLength}"
-
-        if [[ ${depth} -eq 1 ]] ; then
-          local spCnt=$(( ${padSeed} - ${titleLength} - ${depth} -4 ))
-        else
-          local spCnt=$(( ${padSeed} - ${titleLength} - ${depth} -5 ))
-        fi
 
         printf "%04d" "${cnt}"
 
@@ -381,16 +304,8 @@
           *) printf '└🗨️'
             ;;
         esac 
-        printf "$( getNodeTitle ${cnt} )"
-        len=$( getNodeTitle ${cnt} )
-
-        printf "%${spCnt}s"
         
-        if [[ ${maxRowLength} -gt 28 ]] ; then
-          echo "${nodePreview[${cnt}]}"
-        else
-          printf '\n'
-        fi
+        echo "$( getNodeTitle ${cnt} )"
 
       done
 
