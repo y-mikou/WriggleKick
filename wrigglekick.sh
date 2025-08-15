@@ -365,7 +365,6 @@
         if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
           cat "${inputFile}" | { tail -n +${startLineSelectNode}  > "${tmpfileSelect}"; cat >/dev/null;}
         else
-          echo "${startLineSelectNode} ${endLineSelectNode}p"
           cat "${inputFile}" | { sed -n "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
         fi
       fi
@@ -413,7 +412,7 @@
     depth="$( getDepth ${indexNo} )"
     dots="$(seq ${depth} | while read -r line; do printf '.'; done)"
 
-    echo "${dots}${nlString}" > "${tmpfileSelect}"
+    echo "${dots}	${nlString}" > "${tmpfileSelect}"
     cat "${inputFile}" | { head -n "${endLinePreviousNode}" > "${tmpfileHeader}"; cat >/dev/null;}
 
     if [[ ${indexNo} -eq ${maxNodeCnt} ]] ;then
