@@ -18,7 +18,7 @@
   ##############################################################################
   function detectNode {
     
-    readarray -t indexlist < <(grep -nP '^\.+.+' ${inputFile})
+    readarray -t indexlist < <(grep -nP '^\.+\t.+' ${inputFile})
 
     maxNodeCnt="${#indexlist[@]}"
     maxLineCnt="$( cat "${inputFile}" | wc -l  )"
@@ -37,6 +37,7 @@
       local content="${entry#*:}"      
       local endLine
 
+
       if [[ ${i} -ne ${maxNodeCnt} ]]; then
         local nextEntry="${indexlist[${i}]}"
         local nextStartLine="${nextEntry%%:*}"
@@ -49,7 +50,7 @@
       depth="${depth%%[^.]*}"
       depth="${#depth}"
       
-      local title="${content##*.}"
+      title="$( echo "${content}" | cut -f 2 )"
 
       nodeStartLines+=("${startLine}")
       nodeEndLines+=("${endLine}")
@@ -57,7 +58,6 @@
       nodeTitles+=("${title}")
 
     done
-
   }
 }
 
@@ -289,19 +289,19 @@
         seq ${depth} | while read -r line; do printf ' '; done
         
         case "${depth}" in
-          '1') printf '📚️'
+          '1') printf '📚️ '
               ;;
-          '2') printf '└📗'
+          '2') printf '└📗 '
               ;;
-          [34]) printf '└📖'
+          [34]) printf '└📖 '
                 ;;
-          [567]) printf '└📄'
+          [567]) printf '└📄 '
                 ;;
-          [89]) printf '└🏷️'
+          [89]) printf '└🏷️ '
                 ;;
-          '10')  printf '└🗨️'
+          '10')  printf '└🗨️ '
                 ;;        
-          *) printf '└🗨️'
+          *) printf '└🗨️ '
             ;;
         esac 
         
@@ -365,7 +365,6 @@
         if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
           cat "${inputFile}" | { tail -n +${startLineSelectNode}  > "${tmpfileSelect}"; cat >/dev/null;}
         else
-          echo "${startLineSelectNode} ${endLineSelectNode}p"
           cat "${inputFile}" | { sed -n "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
         fi
       fi
@@ -413,7 +412,7 @@
     depth="$( getDepth ${indexNo} )"
     dots="$(seq ${depth} | while read -r line; do printf '.'; done)"
 
-    echo "${dots}${nlString}" > "${tmpfileSelect}"
+    echo -e "${dots}\t${nlString}" > "${tmpfileSelect}"
     cat "${inputFile}" | { head -n "${endLinePreviousNode}" > "${tmpfileHeader}"; cat >/dev/null;}
 
     if [[ ${indexNo} -eq ${maxNodeCnt} ]] ;then
