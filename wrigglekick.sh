@@ -434,11 +434,6 @@ selected_viewer='selected_viewer'
     local SelectGroupNodeFromTo="$(getNodeNoInGroup ${indexNo} '' )"
     local startNodeSelectGroup="$( echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 1 )"
     local endNodeSelectGroup="$( echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 2 )"
-
-    # getLineNo ${startNodeSelectGroup} 1 
-    # getLineNo ${endNodeSelectGroup} 9 
-    # groupCharCount 30 37
-
     local focusCount="$( groupCharCount $( getLineNo ${startNodeSelectGroup} 1 ) $( getLineNo ${endNodeSelectGroup} 9 ) )"
     
     tree "${startNodeSelectGroup}" "${endNodeSelectGroup}" "${focusCount}"
