@@ -17,6 +17,7 @@ selected_viewer='selected_viewer'
   declare -a nodePreview
   declare -a nodeProgress
   declare -a nodeSymbol
+  declare -a nodeCharCount
 
   ##############################################################################
   # ノード検出
@@ -25,7 +26,16 @@ selected_viewer='selected_viewer'
   # グローバル変数設定:最大ノード数(maxNodeCnt)、各種配列
   ##############################################################################
   function detectNode {
-    
+
+    local entry
+    local startLine
+    local content      
+    local endLine
+    local symbol
+    local depth
+    local nextEntry
+    local nextStartLine
+
     readarray -t indexlist < <(grep -nP '^\.+\t.+' ${inputFile})
 
     maxNodeCnt="${#indexlist[@]}"
@@ -38,39 +48,43 @@ selected_viewer='selected_viewer'
     nodePreview=()
     nodeSymbols=()
     nodeProgress=()
+    nodeCharCount=()
 
     for i in $(seq 1 ${maxNodeCnt}); do
-      local entry="${indexlist[$((i-1))]}"
-      local startLine="${entry%%:*}"
-      local content="${entry#*:}"      
-      local endLine
-      local symbol
+      entry="${indexlist[$((i-1))]}"
+      startLine="${entry%%:*}"
+      content="${entry#*:}"      
 
       if [[ ${i} -ne ${maxNodeCnt} ]]; then
-        local nextEntry="${indexlist[${i}]}"
-        local nextStartLine="${nextEntry%%:*}"
+        nextEntry="${indexlist[${i}]}"
+        nextStartLine="${nextEntry%%:*}"
         endLine=$((nextStartLine - 1))
       else
         endLine="${maxLineCnt}"
       fi
       
-      local depth="${content}"
+      depth="${content}"
       depth="${depth%%[^.]*}"
       depth="${#depth}"
       
       title="$( echo "${content}" | cut -f 2 )"
-
-      progress="$( echo "${content}" | cut -f 3 )"
-
       symbol="$( echo "${content}" | cut -f 4 )"
       symbol="${symbol:0:1}" #1文字のみ
-
+      
       nodeStartLines+=("${startLine}")
       nodeEndLines+=("${endLine}")
       nodeDepths+=("${depth}")
       nodeTitles+=("${title}")
-      nodeProgress+=("${progress:-0}") #設定されていない場合には0を一時的に設定
       nodeSymbol+=("${symbol:- }") #設定されていない場合には空白を一時的に設定
+
+      #taかtlの場合以外はスキップする
+      if [[ "${action}" = 'ta' ]] || [[ "${action}" = 'tl' ]] ; then
+        progress="$( echo "${content}" | cut -f 3 )"
+        charCount="$( sed -n "${startLine},${endLine}p" "${inputFile}" | wc -c )"
+
+        nodeCharCount+=("${charCount}")
+        nodeProgress+=("${progress:-0}") #設定されていない場合には0を一時的に設定
+      fi
 
     done
   }
@@ -283,14 +297,14 @@ selected_viewer='selected_viewer'
       *)    echo '';;
     esac
     case "${char2}" in
-      '') echo '節   済 アウトライン'
-          echo '====+==+============'
+      '') echo '節   アウトライン'
+          echo '====+============'
           ;;
-      'l')  echo '節   行番号   済 アウトライン'
-            echo '====+========+==+============'
+      'l')  echo '節   行番号   字数   済 アウトライン'
+            echo '====+========+======+==+============'
             ;;
-      'a')  echo '節   行番号            深  済 アウトライン'
-            echo '====+========+========+===+==+============'
+      'a')  echo '節   行番号            深  字数   済 アウトライン'
+            echo '====+========+========+===+======+==+============'
             ;;
       *)    ;;
     esac
@@ -301,7 +315,9 @@ selected_viewer='selected_viewer'
         endLine="$(   getLineNo ${cnt} 9 )"
         depth="$( getDepth ${cnt} )"
 
+        count="${nodeCharCount[$((cnt-1))]}"
         progress="${nodeProgress[$((cnt-1))]}"
+
         if [[ ${progress} -eq 1 ]] ; then
           progress='☑️ '
         else
@@ -310,19 +326,17 @@ selected_viewer='selected_viewer'
 
         symbols="${nodeSymbol[$((cnt-1))]}"
 
-        printf "%04d " "${cnt}"
+        printf "%04d" "${cnt}"
 
         case "${char2}" in
           '')  :
                 ;;
-          'l') printf "%08d " "${startLine}"
+          'l') printf " %08d %06d %s" "${startLine}" "${count}" "${progress}"
                 ;;
-          'a') printf "%08d~%08d %03d " "${startLine}" "${endLine}" "${depth}"
+          'a') printf " %08d~%08d %03d %06d %s" "${startLine}" "${endLine}" "${depth}" "${count}" "${progress}"
                 ;;
           *)    ;;
         esac
-
-        printf "%s" "${progress}"
 
         seq ${depth} | while read -r line; do printf ' '; done
         
@@ -911,9 +925,18 @@ selected_viewer='selected_viewer'
     #横幅取得
     maxRowLength="$( tput cols )"
 
-    #ノード検出
+    #ノード情報検出
     detectNode
     
+    #指定ファイルがノード情報を持っていなかった場合、追加する。
+    if [[ ${maxNodeCnt} -eq 0 ]] ; then
+      echo 'ノードがありません。先頭に第一ノードを追加します' 
+      printf '%s\n' 0a '.1st Node' . x | ex "${inputFile}"
+      read -s -n 1 c
+      bash "${0}" "${inputFile}" 't'
+      exit 0
+    fi
+
     #エディタの設定
     #editorList配列の優先順で存在するコマンドに決定される。
     #ユーザによる書き換えも想定
@@ -1168,15 +1191,8 @@ selected_viewer='selected_viewer'
       exit 100
     fi
 
-    myInit                      # 初期処理
-
-    if [[ ${maxNodeCnt} -eq 0 ]] ; then
-      echo 'ノードがありません。先頭に第一ノードを追加します' 
-      printf '%s\n' 0a '.1st Node' . x | ex "${inputFile}"
-      read -s -n 1 c
-      bash "${0}" "${inputFile}" 't'
-      exit 0
-    fi
+    # 初期処理
+    myInit
 
     #パラメータチェック
     parameterCheck
