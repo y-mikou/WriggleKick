@@ -65,8 +65,8 @@
       nodeEndLines+=("${endLine}")
       nodeDepths+=("${depth}")
       nodeTitles+=("${title}")
-      nodeProgress+=("${progress:-0}")
-      nodeSymbol+=("${symbol:- }")
+      nodeProgress+=("${progress:-0}") #設定されていない場合には0を一時的に設定
+      nodeSymbol+=("${symbol:- }") #設定されていない場合には空白を一時的に設定
 
     done
   }
