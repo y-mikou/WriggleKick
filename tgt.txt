@@ -52,7 +52,7 @@ aqqq
 qqq
 qqqq
 qqq
-..	New Node
+..	New Node	0	
 ...	でぷす6
 dcsfds
 sdffsdf

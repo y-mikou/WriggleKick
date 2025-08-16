@@ -12,7 +12,6 @@
   declare -a nodeProgress
   declare -a nodeSymbol
 
-
   ##############################################################################
   # ノード検出
   # 入力ファイルのノード構成を検出してグローバル設定する
@@ -40,7 +39,6 @@
       local content="${entry#*:}"      
       local endLine
       local symbol
-
 
       if [[ ${i} -ne ${maxNodeCnt} ]]; then
         local nextEntry="${indexlist[${i}]}"
@@ -904,42 +902,9 @@
   ##############################################################################
   function myInit {
 
-    #横幅取得
-    maxRowLength="$( tput cols )"
-
     #ノード検出
     detectNode
     
-    #エディタの設定
-    #editorList配列の優先順で存在するコマンドに決定される。
-    #ユーザによる書き換えも想定
-    #(selected_editor部分を任意のエディター起動コマンドに変更)
-    editorList=('selected_editor' 'edit' 'micro' 'nano' 'vi' 'ed')
-                #^^^^^^^^^^^^^^^edit here
-    for itemE in "${editorList[@]}" ; do
-      #コマンドがエラーを返すか否かで判断
-      \command -v "${itemE}" >/dev/null 2>&1
-      if [[ ${?} = 0 ]] ; then
-        selected_editor="${itemE}"
-        break
-      fi
-    done
-
-    #ビューワの設定
-    #viewerList配列の優先順で存在するコマンドに決定される。
-    #ユーザによる書き換えも想定
-    #(selected_viewer部分を任意のビューワ起動コマンドに変更)
-    viewerList=('selected_viewer' 'less' 'more' 'view' 'cat')
-                #^^^^^^^^^^^^^^^edit here
-    for itemV in "${viewerList[@]}" ; do
-      #コマンドがエラーを返すか否かで判断
-      \command -v "${itemV}" >/dev/null 2>&1
-      if [[ ${?} = 0 ]] ; then
-        selected_viewer="${itemV}"
-        break
-      fi
-    done
-
     ################################################
     # 動作指定の読み替え
     ################################################
