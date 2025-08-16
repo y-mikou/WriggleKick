@@ -371,13 +371,13 @@
   }
 }
 
-: "済マーク切り替え" && {
+: "シンボル系" && {
   ##############################################################################
   # 選択ノードの済マーク(☑️)と未済(⬜️)のマークを切り替える
   # 引数:ノード番号
   ##############################################################################
   function switchProgress {
-    local selectNode="${indexNo}"
+    local selectNode="${1}"
     
     local presentProgress="${nodeProgress[$((selectNode-1))]:=0}"
     presentProgress="${presentProgress:0:1}" #不正な文字が入っていた場合に1文字に削る
@@ -388,7 +388,7 @@
       modifiyProgress=0
     fi
 
-    local targetLineNo=${nodeStartLines[$((selectNode-1))]}
+    local targetLineNo="${nodeStartLines[$((selectNode-1))]}"
     local presentTitlelineContent="$( getNodeTitlelineContent ${selectNode} )"
 
     local part_before=$( echo "${presentTitlelineContent}" | cut -f 1-2 )
@@ -396,6 +396,30 @@
     local part_after=$( echo "${presentTitlelineContent}" | cut -f 4- )
 
     modifiedTitlelineContent="$( echo -e "${part_before}\t${modifiyProgress}\t${part_after}" )"
+
+    sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
+
+    bash "${0}" "${inputFile}" 't'
+    exit 0
+  }
+
+  ##############################################################################
+  # 選択ノードにシンボルを設定。指定シンボルを空にした場合は削除
+  # 引数1:ノード番号
+  # 引数2:設定するシンボル(1文字のみ)
+  ##############################################################################
+  function setSymbol {
+    local selectNode="${1}"
+    local modifySymbol="${2}"
+
+    modifySymbol="${modifySymbol:0:1}" #1文字のみ
+
+    local targetLineNo="${nodeStartLines[$((selectNode-1))]}"
+    local presentTitlelineContent="$( getNodeTitlelineContent ${selectNode} )"
+
+    local part_before="$( echo "${presentTitlelineContent}" | cut -f 1-3 )"
+
+    modifiedTitlelineContent="$( echo -e "${part_before}\t${modifySymbol}" )"
 
     sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
 
@@ -986,7 +1010,7 @@
     local depth=$(getDepth ${indexNo})
 
     #動作指定のチェック
-    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c')
+    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c' 's')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -ne 0 ]] ; then
       echo '引数2:無効なアクションです'
@@ -995,7 +1019,7 @@
     fi
 
     unset allowActionList
-    allowActionList=('e' 'd' 'i' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c')
+    allowActionList=('e' 'd' 'i' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c' 's')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -eq 0 ]] ; then
       if [[ ${indexNo} = '' ]] ; then
@@ -1113,8 +1137,10 @@
     echo '　　　　　gmr...自分の配下ノードを引き連れて右へ移動(深くする)'
     echo '　　　　　j.....指定ノードを、下のノードと結合'
     echo '　　　　　c.....指定ノードの済/未マークを切り替える'
+    echo '　　　　　s.....指定ノードに表示シンボルを設定する'
     echo '　　　　　数字...対象ノードを編集(eと引数3を省略)'
     echo '　引数3:動作対象ノード番号'
+    echo '　引数4:動作指定ごとに必要なオプション'
   }
 }
 
@@ -1131,6 +1157,7 @@
     inputFile="${1}"
     action="${2}"
     indexNo="${3}"
+    option="${4}"
 
     #対象ファイルの存在チェック
     if [[ ! -f ${inputFile} ]] ; then
@@ -1165,6 +1192,8 @@
     clear
 
     case "${char1}" in
+      's')  setSymbol "${indexNo}" "${option}"
+            ;;
       'j')  joinNode "${indexNo}"
             ;;
       'c')  switchProgress "${indexNo}"
@@ -1211,7 +1240,7 @@
 ###########################################
 # エントリーポイント
 ###########################################
-main "${1}" "${2}" "${3}"
+main "${1}" "${2}" "${3}" "${4}"
 
 # 正常終了したときに一時ファイルを削除する
 trap rm_tmpfile EXIT
