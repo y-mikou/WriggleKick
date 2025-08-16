@@ -1,4 +1,4 @@
-.	だだだだだ	0	🐣
+.	だだだだだ	1	🐣
 タイトルだよne3
 ああ
 aaaana
@@ -27,7 +27,15 @@ sss
 ddddddddddddddddddd
 ......	depth7-222222
 fsdfs
-..	New Node
+..	New Node0文字	1	
+...	でぷす6
+dcsfds
+sdffsdf
+dsfdf
+....	New Node0文字
+...	New Node
+aaa
+..	New Node0文字
 ...	node1
 ので
 １
@@ -38,7 +46,6 @@ fsdfs
 aaaananika
 aaaananika
 sss
-....	node1-1
 こまかい
 ｓｓ
 ｓｓ
@@ -52,22 +59,14 @@ aqqq
 qqq
 qqqq
 qqq
-..	New Node	0	
-...	でぷす6
-dcsfds
-sdffsdf
-dsfdf
-....	New Node
-...	New Node
-aaa
 .	title2ed
 dsfdf
 aaa
-..	New Node
+..	New Node0文字
 ...	depth2-1
 fsdfs
 sdffsdf
 dsfdf
+....	NewNode
 dsfdf
-....	depth4
 sss
