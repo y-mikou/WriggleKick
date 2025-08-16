@@ -9,6 +9,9 @@
   declare -a nodeDepths
   declare -a nodeTitles
   declare -a nodePreview
+  declare -a nodeProgress
+  declare -a nodeSymbol
+
 
   ##############################################################################
   # ノード検出
@@ -28,14 +31,15 @@
     nodeDepths=()
     nodeTitles=()
     nodePreview=()
-
-    paddingTitleAndPreview=4
+    nodeSymbols=()
+    nodeProgress=()
 
     for i in $(seq 1 ${maxNodeCnt}); do
       local entry="${indexlist[$((i-1))]}"
       local startLine="${entry%%:*}"
       local content="${entry#*:}"      
       local endLine
+      local symbol
 
 
       if [[ ${i} -ne ${maxNodeCnt} ]]; then
@@ -52,10 +56,17 @@
       
       title="$( echo "${content}" | cut -f 2 )"
 
+      progress="$( echo "${content}" | cut -f 3 )"
+
+      symbol="$( echo "${content}" | cut -f 4 )"
+      symbol="${symbol:0:1}" #1文字のみ
+
       nodeStartLines+=("${startLine}")
       nodeEndLines+=("${endLine}")
       nodeDepths+=("${depth}")
       nodeTitles+=("${title}")
+      nodeProgress+=("${progress:-0}")
+      nodeSymbol+=("${symbol:- }")
 
     done
   }
@@ -102,9 +113,9 @@
   }
 }
 
-: "タイトル取得" && {
+: "タイトル取得系" && {
   ##############################################################################
-  # ノードタイトル取得
+  # ノードタイトル取得(タイトル部分のみ)
   # 対象ノードのタイトルを取得する
   # 引数1:対象ノード番号
   # 戻り値:なし
@@ -114,6 +125,18 @@
     
     local selectNode="${1}"
     echo "${nodeTitles[$((selectNode-1))]}"
+
+  }
+  ##############################################################################
+  # ノードタイトル取得(タイトル行全体)
+  # 対象ノードのタイトル行全体を取得する
+  # 引数1:対象ノード番号
+  # 戻り値:なし
+  # 標準出力:対象ノードのタイトル行全体
+  ##############################################################################
+  function getNodeTitlelineContent {
+    local selectNodeLineNo="${nodeStartLines[ $(( ${1}-1 )) ]}"
+    sed -n ${selectNodeLineNo}p "${inputFile}"
 
   }
 }
@@ -256,14 +279,14 @@
       *)    echo '';;
     esac
     case "${char2}" in
-      '') echo '節   アウトライン'
-          echo '====+============'
+      '') echo '節   済 アウトライン'
+          echo '====+==+============'
           ;;
-      'l')  echo '節   行番号   アウトライン'
-            echo '====+========+============'
+      'l')  echo '節   行番号   済 アウトライン'
+            echo '====+========+==+============'
             ;;
-      'a')  echo '節   行番号            深  アウトライン'
-            echo '====+========+========+===+============'
+      'a')  echo '節   行番号            深  済 アウトライン'
+            echo '====+========+========+===+==+============'
             ;;
       *)    ;;
     esac
@@ -274,37 +297,50 @@
         endLine="$(   getLineNo ${cnt} 9 )"
         depth="$( getDepth ${cnt} )"
 
-        printf "%04d" "${cnt}"
+        progress="${nodeProgress[$((cnt-1))]}"
+        if [[ ${progress} -eq 1 ]] ; then
+          progress='☑️ '
+        else
+          progress='⬜️'
+        fi
+
+        symbols="${nodeSymbol[$((cnt-1))]}"
+
+        printf "%04d " "${cnt}"
 
         case "${char2}" in
           '')  :
                 ;;
-          'l') printf " %08d" "${startLine}"
+          'l') printf "%08d " "${startLine}"
                 ;;
-          'a') printf " %08d~%08d %03d" "${startLine}" "${endLine}" "${depth}"
+          'a') printf "%08d~%08d %03d " "${startLine}" "${endLine}" "${depth}"
                 ;;
           *)    ;;
         esac
 
+        printf "%s" "${progress}"
+
         seq ${depth} | while read -r line; do printf ' '; done
         
         case "${depth}" in
-          '1') printf '📚️ '
+          '1') printf '📚️'
               ;;
-          '2') printf '└📗 '
+          '2') printf '└📗'
               ;;
-          [34]) printf '└📖 '
+          [34]) printf '└📖'
                 ;;
-          [567]) printf '└📄 '
+          [567]) printf '└📄'
                 ;;
-          [89]) printf '└🏷️ '
+          [89]) printf '└🏷️'
                 ;;
-          '10')  printf '└🗨️ '
+          '10')  printf '└🗨️'
                 ;;        
-          *) printf '└🗨️ '
+          *) printf '└🗨️'
             ;;
         esac 
-        
+
+        printf "%s " "${symbols}"
+
         echo "$( getNodeTitle ${cnt} )"
 
       done
@@ -330,6 +366,39 @@
 
     cat "${inputFile}" | sed -sn "${startLineSelectGroup},${endLineSelectGroup}p" > "${tmpfileTarget}"
     "${selected_viewer}" "${tmpfileTarget}"
+    bash "${0}" "${inputFile}" 't'
+    exit 0
+  }
+}
+
+: "済マーク切り替え" && {
+  ##############################################################################
+  # 選択ノードの済マーク(☑️)と未済(⬜️)のマークを切り替える
+  # 引数:ノード番号
+  ##############################################################################
+  function switchProgress {
+    local selectNode="${indexNo}"
+    
+    local presentProgress="${nodeProgress[$((selectNode-1))]:=0}"
+    presentProgress="${presentProgress:0:1}" #不正な文字が入っていた場合に1文字に削る
+
+    if [[ ${presentProgress} -eq 0 ]] ; then
+      modifiyProgress=1
+    else
+      modifiyProgress=0
+    fi
+
+    local targetLineNo=${nodeStartLines[$((selectNode-1))]}
+    local presentTitlelineContent="$( getNodeTitlelineContent ${selectNode} )"
+
+    local part_before=$( echo "${presentTitlelineContent}" | cut -f 1-2 )
+    # local part_progress=$( echo "${presentTitlelineContent}" | cut -f 3 )
+    local part_after=$( echo "${presentTitlelineContent}" | cut -f 4- )
+
+    modifiedTitlelineContent="$( echo -e "${part_before}\t${modifiyProgress}\t${part_after}" )"
+
+    sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
+
     bash "${0}" "${inputFile}" 't'
     exit 0
   }
@@ -917,7 +986,7 @@
     local depth=$(getDepth ${indexNo})
 
     #動作指定のチェック
-    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j')
+    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -ne 0 ]] ; then
       echo '引数2:無効なアクションです'
@@ -926,7 +995,7 @@
     fi
 
     unset allowActionList
-    allowActionList=('e' 'd' 'i' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j')
+    allowActionList=('e' 'd' 'i' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -eq 0 ]] ; then
       if [[ ${indexNo} = '' ]] ; then
@@ -1043,6 +1112,7 @@
     echo '　　　　　gml...自分の配下ノードを引き連れて左へ移動(浅くする)'
     echo '　　　　　gmr...自分の配下ノードを引き連れて右へ移動(深くする)'
     echo '　　　　　j.....指定ノードを、下のノードと結合'
+    echo '　　　　　c.....指定ノードの済/未マークを切り替える'
     echo '　　　　　数字...対象ノードを編集(eと引数3を省略)'
     echo '　引数3:動作対象ノード番号'
   }
@@ -1096,6 +1166,8 @@
 
     case "${char1}" in
       'j')  joinNode "${indexNo}"
+            ;;
+      'c')  switchProgress "${indexNo}"
             ;;
       'h')  displayHelp
             ;;
