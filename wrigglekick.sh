@@ -1017,7 +1017,7 @@ selected_viewer='selected_viewer'
     #指定ファイルがノード情報を持っていなかった場合、追加する。
     if [[ ${maxNodeCnt} -eq 0 ]] ; then
       echo 'ノードがありません。先頭に第一ノードを追加します' 
-      printf '%s\n' 0a '.1st Node' . x | ex "${inputFile}"
+      sed -i -e '1s|^|.\t1st Node\n|g' "${inputFile}"
       read -s -n 1 c
       bash "${0}" "${inputFile}" 't'
       exit 0
