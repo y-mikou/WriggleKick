@@ -35,7 +35,7 @@ selected_viewer='selected_viewer'
     echo '　　　　　gml...自分の配下ノードを引き連れて左へ移動(浅くする)'
     echo '　　　　　gmr...自分の配下ノードを引き連れて右へ移動(深くする)'
     echo '　　　　　j.....指定ノードを、下のノードと結合'
-    echo '　　　　　x.....指定ノードの済/未マークを切り替える'
+    echo '　　　　　c.....指定ノードの済/未マークを切り替える'
     echo '　　　　　gc....自分の配下ノードを含んだ文字数を通知する'
     echo '　　　　　s.....指定ノードに表示シンボルを設定する'
     echo '　　　　　o.....自分の配下ノードを含んだ範囲を別ファイル出力する'
@@ -1166,7 +1166,7 @@ selected_viewer='selected_viewer'
     local depth=$(getDepth ${indexNo})
 
     #動作指定のチェック
-    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'x' 'gc' 's' 'o')
+    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c' 'gc' 's' 'o')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -ne 0 ]] ; then
       echo '引数2:無効なアクションです'
@@ -1175,7 +1175,7 @@ selected_viewer='selected_viewer'
     fi
 
     unset allowActionList
-    allowActionList=('e' 'd' 'i' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'x' 'gc' 's' 'o')
+    allowActionList=('e' 'd' 'i' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c' 'gc' 's' 'o')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -eq 0 ]] ; then
       if [[ ${indexNo} = '' ]] ; then
@@ -1311,7 +1311,7 @@ selected_viewer='selected_viewer'
       'j')  clear
             joinNode
             ;;
-      'x')  clear
+      'c')  clear
             switchProgress
             ;;
       'h')  clear
