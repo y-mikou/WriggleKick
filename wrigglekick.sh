@@ -132,7 +132,7 @@ selected_viewer='selected_viewer'
             sed -n "${startLine},${endLine}p" "${inputFile}" \
           | sed -E "s/^\..*//g" \
           | sed -z "s/\n//g" \
-          | wc -c \
+          | wc -m \
           )"
         fi
         nodeCharCount+=("${charCount}")
@@ -390,7 +390,7 @@ selected_viewer='selected_viewer'
       sed -n "${lineStart},${lineEnd}p" "${inputFile}" \
     | sed -E "s/^\..*//g" \
     | sed -z "s/\n//g" \
-    | wc -c \
+    | wc -m \
 
   }
   
@@ -550,7 +550,7 @@ selected_viewer='selected_viewer'
 
     if [[ -z "${outputFile/ /}" ]] ; then
       local nodeTitles="${nodeTitles[$((${indexNo}-1))]}"
-      outputFile="./${nodeTitles}"
+      outputFile="./${nodeTitles}.txt"
       echo "出力ファイル名の指定がなかったため、ノード名を使用します。"
     fi
 
@@ -566,7 +566,6 @@ selected_viewer='selected_viewer'
     local selectGroupFromTo="$( getNodeNoInGroup ${indexNo} '' )"
     local startLineSelectGroup="$( getLineNo $( echo ${selectGroupFromTo} | cut -d ' ' -f 1 ) 1 )"
     local endLineSelectGroup="$( getLineNo $( echo ${selectGroupFromTo} | cut -d ' ' -f 2 ) 9 )"
-
 
     sed -n "${startLineSelectGroup},${endLineSelectGroup}p" "${inputFile}" > "${outputFile}"
     
@@ -1066,7 +1065,7 @@ selected_viewer='selected_viewer'
     allCharCount="$( \
         sed -E "s/^\..*//g" "${inputFile}" \
       | sed -z "s/\n//g" \
-      | wc -c \
+      | wc -m \
     )"
 
 
