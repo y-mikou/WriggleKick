@@ -547,6 +547,13 @@ selected_viewer='selected_viewer'
 
     local outputFile="${1}"
 
+
+    if [[ -z "${outputFile/ /}" ]] ; then
+      local nodeTitles="${nodeTitles[$((${indexNo}-1))]}"
+      outputFile="./${nodeTitles}"
+      echo "出力ファイル名の指定がなかったため、ノード名を使用します。"
+    fi
+
     if [[ -f "${outputFile}" ]] ; then
       printf "出力先に既に同名のファイルがあります。上書きしますか？ (y/n)\n>"
       read yn
@@ -560,10 +567,6 @@ selected_viewer='selected_viewer'
     local startLineSelectGroup="$( getLineNo $( echo ${selectGroupFromTo} | cut -d ' ' -f 1 ) 1 )"
     local endLineSelectGroup="$( getLineNo $( echo ${selectGroupFromTo} | cut -d ' ' -f 2 ) 9 )"
 
-    if [[ -z "${outputFile/ /}" ]] ; then
-      local nodeTitles="${nodeTitles[$((${indexNo}-1))]}"
-      outputFile="./${nodeTitles}"
-    fi
 
     sed -n "${startLineSelectGroup},${endLineSelectGroup}p" "${inputFile}" > "${outputFile}"
     
