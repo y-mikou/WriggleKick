@@ -53,7 +53,6 @@ selected_viewer='selected_viewer'
   declare -a nodeEndLines
   declare -a nodeDepths
   declare -a nodeTitles
-  declare -a nodePreview
   declare -a nodeProgress
   declare -a nodeSymbol
   declare -a nodeCharCount
@@ -70,6 +69,8 @@ selected_viewer='selected_viewer'
     local startLine
     local content      
     local endLine
+    local title
+    local progress
     local symbol
     local depth
     local nextEntry
@@ -84,9 +85,8 @@ selected_viewer='selected_viewer'
     nodeEndLines=()
     nodeDepths=()
     nodeTitles=()
-    nodePreview=()
-    nodeSymbols=()
     nodeProgress=()
+    nodeSymbols=()
     nodeCharCount=()
 
     for i in $(seq 1 ${maxNodeCnt}); do
@@ -114,10 +114,10 @@ selected_viewer='selected_viewer'
       nodeEndLines+=("${endLine}")
       nodeDepths+=("${depth}")
       nodeTitles+=("${title}")
-      nodeSymbol+=("${symbol:- }") #設定されていない場合には空白を一時的に設定
+      nodeSymbol+=("${symbol:=　}") #設定されていない場合には空白を一時的に設定
 
       progress="$( echo "${content}" | cut -f 3 )"
-      nodeProgress+=("${progress:-0}") #設定されていない場合には0を一時的に設定
+      nodeProgress+=("${progress:=0}")
 
       #taかtlの場合以外はスキップする
 
@@ -183,11 +183,11 @@ selected_viewer='selected_viewer'
     local modifySymbol="${option:0:1}" #1文字のみ
 
     local targetLineNo="${nodeStartLines[$((${indexNo}-1))]}"
-    local presentTitlelineContent="$( getNodeTitlelineContent ${indexNo} )"
 
-    local part_before="$( echo "${presentTitlelineContent}" | cut -f 1-3 )"
+    local part_before="$( seq ${nodeDepths[$((indexNo-1))]} | while read -r line; do printf '.'; done )"
+    part_before="${part_before}\t${nodeTitles[$((indexNo-1))]}\t${nodeProgress[$((indexNo-1))]}"
 
-    modifiedTitlelineContent="$( echo -e "${part_before}\t${modifySymbol}" )"
+    local modifiedTitlelineContent="$( echo -e "${part_before}\t${modifySymbol}" )"
 
     sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
 
@@ -482,7 +482,7 @@ selected_viewer='selected_viewer'
         depth="$( getDepth ${cnt} )"
 
         count="${nodeCharCount[$((cnt-1))]}"
-        progress="${nodeProgress[$((cnt-1))]}"
+        progress="${nodeProgress[$((cnt-1))]:=0}"
 
         if [[ ${progress} -eq 1 ]] ; then
           progress='☑️ '
