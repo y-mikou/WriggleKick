@@ -38,6 +38,7 @@ selected_viewer='selected_viewer'
     echo '　　　　　x.....指定ノードの済/未マークを切り替える'
     echo '　　　　　gc....自分の配下ノードを含んだ文字数を通知する'
     echo '　　　　　s.....指定ノードに表示シンボルを設定する'
+    echo '　　　　　o.....自分の配下ノードを含んだ範囲を別ファイル出力する'
     echo '　　　　　数字...対象ノードを編集(eと引数3を省略)'
     echo '　引数3:動作対象ノード番号'
     echo '　引数4:動作指定ごとに必要なオプション'
@@ -533,6 +534,41 @@ selected_viewer='selected_viewer'
     echo '❓️引数なしでhelp参照'
     exit 0
    
+  }
+}
+
+: "ノード出力系コマンド" && {
+  ##############################################################################
+  # 配下ノードを含んだ範囲を別ファイルに出力する
+  # 引数1: 出力ファイルパス(ファイル名含)
+  # ノード指定と入力ファイルはグローバルから取得
+  ##############################################################################
+  function outputGroup {
+
+    local outputFile="${1}"
+
+    if [[ -f "${outputFile}" ]] ; then
+      printf "出力先に既に同名のファイルがあります。上書きしますか？ (y/n)\n>"
+      read yn
+      if [[ "${yn}" != 'y' ]] ; then
+        echo "出力を中止しました。"
+        exit 0
+      fi
+    fi
+
+    local selectGroupFromTo="$( getNodeNoInGroup ${indexNo} '' )"
+    local startLineSelectGroup="$( getLineNo $( echo ${selectGroupFromTo} | cut -d ' ' -f 1 ) 1 )"
+    local endLineSelectGroup="$( getLineNo $( echo ${selectGroupFromTo} | cut -d ' ' -f 2 ) 9 )"
+
+    if [[ -z "${outputFile/ /}" ]] ; then
+      local nodeTitles="${nodeTitles[$((${indexNo}-1))]}"
+      outputFile="./${nodeTitles}"
+    fi
+
+    sed -n "${startLineSelectGroup},${endLineSelectGroup}p" "${inputFile}" > "${outputFile}"
+    
+    echo "ノード範囲を出力しました: ${outputFile}"
+    exit 0
   }
 }
 
@@ -1127,7 +1163,7 @@ selected_viewer='selected_viewer'
     local depth=$(getDepth ${indexNo})
 
     #動作指定のチェック
-    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'x' 'gc' 's')
+    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'x' 'gc' 's' 'o')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -ne 0 ]] ; then
       echo '引数2:無効なアクションです'
@@ -1136,7 +1172,7 @@ selected_viewer='selected_viewer'
     fi
 
     unset allowActionList
-    allowActionList=('e' 'd' 'i' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'x' 'gc' 's')
+    allowActionList=('e' 'd' 'i' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'x' 'gc' 's' 'o')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -eq 0 ]] ; then
       if [[ ${indexNo} = '' ]] ; then
@@ -1264,6 +1300,8 @@ selected_viewer='selected_viewer'
     char3="${action:2:1}"
 
     case "${char1}" in
+      'o')  outputGroup "${option}"
+            ;;
       's')  clear
             setSymbol
             ;;
