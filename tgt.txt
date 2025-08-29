@@ -2,6 +2,7 @@
 タイトルだよne3
 ああ
 aaaana
+aaa
 ..	New Node3	0	
 　あああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああ
 　dsfdfaaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananikaaaaananika
@@ -35,30 +36,6 @@ dsfdf
 ....	New Node0文字
 ...	New Node
 aaa
-..	New Node0文字
-...	node1		
-ので
-１
-ｓ
-４５６
-
-....	node1-2
-aaaananika
-aaaananika
-sss
-こまかい
-ｓｓ
-ｓｓ
-ｓ
-...	node2
-
-っっっｓ
-
-....	node2-1
-aqqq
-qqq
-qqqq
-qqq
 .	title2ed
 dsfdf
 aaa

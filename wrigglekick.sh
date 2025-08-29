@@ -1165,7 +1165,7 @@ selected_viewer='selected_viewer'
     local depth=$(getDepth ${indexNo})
 
     #動作指定のチェック
-    allowActionList=('h' 'e' 'd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c' 'gc' 's' 'o')
+    allowActionList=('h' 'e' 'd' 'gd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c' 'gc' 's' 'o')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -ne 0 ]] ; then
       echo '引数2:無効なアクションです'
@@ -1174,7 +1174,7 @@ selected_viewer='selected_viewer'
     fi
 
     unset allowActionList
-    allowActionList=('e' 'd' 'i' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c' 'gc' 's' 'o')
+    allowActionList=('e' 'd' 'gd' 'i' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c' 'gc' 's' 'o')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -eq 0 ]] ; then
       if [[ ${indexNo} = '' ]] ; then
@@ -1294,7 +1294,6 @@ selected_viewer='selected_viewer'
       exit 1
     fi
 
-    makeBackup  # バックアップ作成
     makeTmpfile # 一時ファイルを作成
 
     char1="${action:0:1}"
@@ -1335,6 +1334,8 @@ selected_viewer='selected_viewer'
                     groupView
                     ;;
               'c')  dispGroupCharCount
+                    ;;
+              'd')  deleteGroup
                     ;;
               *)  case "${char3}" in 
                     [ud]) clear
