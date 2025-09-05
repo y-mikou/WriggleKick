@@ -25,7 +25,8 @@ selected_viewer='selected_viewer'
     echo '　　　　　gv....対象ノードの配下ノードを横断的に閲覧'
     echo '　　　　　e.....対象ノードの編集'
     echo '　　　　　d.....対象ノードの削除'
-    echo '　　　　　i.....対象ノードの下に新規ノード挿入'
+    echo '　　　　　i.....対象ノードの下に新規ノード挿入。追加引数としてノード名'
+    echo '　　　　　ie....対象ノードの下に新規ノード挿入、即編集モードへ。追加引数としてノード名'
     echo '　　　　　mu....対象ノードひとつを上へ移動'
     echo '　　　　　md....対象ノードひとつを下へ移動'
     echo '　　　　　ml....対象ノードひとつを左へ移動(浅くする)'
@@ -37,8 +38,8 @@ selected_viewer='selected_viewer'
     echo '　　　　　j.....指定ノードを、下のノードと結合'
     echo '　　　　　c.....指定ノードの済/未マークを切り替える'
     echo '　　　　　gc....自分の配下ノードを含んだ文字数を通知する'
-    echo '　　　　　s.....指定ノードに表示シンボルを設定する'
-    echo '　　　　　o.....自分の配下ノードを含んだ範囲を別ファイル出力する'
+    echo '　　　　　s.....指定ノードに表示シンボルを設定する。追加引数でシンボルを指定(1文字)'
+    echo '　　　　　o.....自分の配下ノードを含んだ範囲を別ファイル出力する。追加引数で出力ファイル名'
     echo '　　　　　数字...対象ノードを編集(eと引数3を省略)'
     echo '　引数3:動作対象ノード番号'
     echo '　引数4:動作指定ごとに必要なオプション'
@@ -643,9 +644,8 @@ selected_viewer='selected_viewer'
   # 対象のノードの下に新しいノードを挿入する
   # 引数:なし(グローバルのみ)
   ##############################################################################
-  function insertNode {
-    
-    nlString='New Node'
+  function insert {
+    nlString="${option:-名称未設定}"
     endLinePreviousNode="$( getLineNo ${indexNo} 9 )"
     startLineNextNode="$(   getLineNo $(( ${indexNo} +1 )) 1 )"
 
@@ -663,7 +663,25 @@ selected_viewer='selected_viewer'
       cat "${inputFile}" | { tail -n +${startLineNextNode}  > "${tmpfileFooter}"; cat >/dev/null;}
       cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileFooter}" > "${inputFile}"
     fi
+  }
 
+
+  ##############################################################################
+  # 対象のノードの下に新しいノードを挿入する
+  # 引数:なし(グローバルのみ)
+  ##############################################################################
+  function insertEdit {
+    insert
+    bash "${0}" "${inputFile}" 'e' "$((${indexNo} + 1))"
+    exit 0
+  }
+
+  ##############################################################################
+  # 対象のノードの下に新しいノードを挿入する
+  # 引数:なし(グローバルのみ)
+  ##############################################################################
+  function insertNode {    
+    insert
     bash "${0}" "${inputFile}" 't'
     exit 0
   }
@@ -1142,11 +1160,10 @@ selected_viewer='selected_viewer'
       exit 0
     fi
 
-
     ######################################
     #バックアップ作成
     ######################################
-    makeBackupActionList=('e' 'd' 'i' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'c' 's')
+    makeBackupActionList=('e' 'd' 'i' 'ie' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'c' 's')
     printf '%s\n' "${makeBackupActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -eq 0 ]] ; then
       makeBackup
@@ -1165,7 +1182,7 @@ selected_viewer='selected_viewer'
     local depth=$(getDepth ${indexNo})
 
     #動作指定のチェック
-    allowActionList=('h' 'e' 'd' 'gd' 'i' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c' 'gc' 's' 'o')
+    allowActionList=('h' 'e' 'd' 'gd' 'i' 'ie' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c' 'gc' 's' 'o')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -ne 0 ]] ; then
       echo '引数2:無効なアクションです'
@@ -1174,7 +1191,7 @@ selected_viewer='selected_viewer'
     fi
 
     unset allowActionList
-    allowActionList=('e' 'd' 'gd' 'i' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c' 'gc' 's' 'o')
+    allowActionList=('e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c' 'gc' 's' 'o')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -eq 0 ]] ; then
       if [[ ${indexNo} = '' ]] ; then
@@ -1356,7 +1373,12 @@ selected_viewer='selected_viewer'
             focusMode
             ;;
       'i')  clear
-            insertNode
+            case "${char2}" in
+              '') insertNode
+                  ;;
+              'e') insertEdit
+                  ;;              
+            esac
             ;;
       [edv])  clear
               singleNodeOperations
