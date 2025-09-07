@@ -41,11 +41,8 @@ dsfdf
 aaa
 ..	New Node0文字
 ...	depth2-1
-編集します
-fsdfs
-sdffsdf
-dsfdf
+1行目
 ...	名称未設定
-あああ
+2行目
 ...	nyuuu
-babuiy
+3行目

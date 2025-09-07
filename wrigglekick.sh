@@ -1031,7 +1031,51 @@ selected_viewer='selected_viewer'
   ##############################################################################
   function joinGroup {
 
-    #未実装
+    selectNodeLineFromTo="$( getLineNo ${indexNo} '' )"
+    startLineSelectNode="$( echo ${selectNodeLineFromTo} | cut -d ' ' -f 1 )"
+    endLineSelectNode="$(   echo ${selectNodeLineFromTo} | cut -d ' ' -f 2 )"
+
+    endLineHeader="$(( ${startLineSelectNode} -1 ))"
+    startLineFooter="$(( ${endLineSelectNode} +1 ))"
+
+    (
+      if [[ ${indexNo} -eq 1 ]]; then
+        printf '' > "${tmpfileHeader}"
+      else
+        cat "${inputFile}" | { head -n "${endLineHeader}" > "${tmpfileHeader}"; cat >/dev/null;}
+      fi
+      wait
+    )
+    (
+      if [[ ${indexNo} -eq 1 ]] ; then
+        cat "${inputFile}" | { sed -n "1, ${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
+      else
+        if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
+          cat "${inputFile}" | { tail -n +${startLineSelectNode}  > "${tmpfileSelect}"; cat >/dev/null;}
+        else
+          cat "${inputFile}" | { sed -n "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
+        fi
+      fi
+      wait
+    )
+    (
+      if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
+        printf '' > "${tmpfileFooter}"
+      else
+        tail -n +"${startLineFooter}" "${inputFile}" > "${tmpfileFooter}"
+      fi
+      wait
+    )
+    cat "${tmpfileSelect}"
+    local titoleLine="$(head -n 1 ${tmpfileSelect})"
+    local content="$(tail -n +2 ${tmpfileSelect})"
+    cat "${content}" #| sed -i 's/\.\t.+\n//g'
+
+    exit 1
+
+    sed -i -e '$a\' "${tmpfileSelect}" #編集の結果末尾に改行がない場合'
+    cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileFooter}" > "${inputFile}"
+
     bash "${0}" "${inputFile}" 't'
     exit 0
   }
@@ -1182,7 +1226,7 @@ selected_viewer='selected_viewer'
     local depth=$(getDepth ${indexNo})
 
     #動作指定のチェック
-    allowActionList=('h' 'e' 'd' 'gd' 'i' 'ie' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c' 'gc' 's' 'o')
+    allowActionList=('h' 'e' 'd' 'gd' 'i' 'ie' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'c' 'gc' 's' 'o')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -ne 0 ]] ; then
       echo '引数2:無効なアクションです'
@@ -1191,7 +1235,7 @@ selected_viewer='selected_viewer'
     fi
 
     unset allowActionList
-    allowActionList=('e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c' 'gc' 's' 'o')
+    allowActionList=('e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'c' 'gc' 's' 'o')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -eq 0 ]] ; then
       if [[ ${indexNo} = '' ]] ; then
@@ -1353,6 +1397,8 @@ selected_viewer='selected_viewer'
               'c')  dispGroupCharCount
                     ;;
               'd')  deleteGroup
+                    ;;
+              'j')  joinGroup
                     ;;
               *)  case "${char3}" in 
                     [ud]) clear
