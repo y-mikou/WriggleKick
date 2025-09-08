@@ -36,6 +36,7 @@ selected_viewer='selected_viewer'
     echo '　　　　　gml...自分の配下ノードを引き連れて左へ移動(浅くする)'
     echo '　　　　　gmr...自分の配下ノードを引き連れて右へ移動(深くする)'
     echo '　　　　　j.....指定ノードを、下のノードと結合'
+    echo '　　　　　gj....自分の配下ノードを、自分に統合'
     echo '　　　　　c.....指定ノードの済/未マークを切り替える'
     echo '　　　　　gc....自分の配下ノードを含んだ文字数を通知する'
     echo '　　　　　s.....指定ノードに表示シンボルを設定する。追加引数でシンボルを指定(1文字)'
@@ -1031,7 +1032,53 @@ selected_viewer='selected_viewer'
   ##############################################################################
   function joinGroup {
 
-    #未実装
+    local selectGroupNodeFromTo="$( getNodeNoInGroup ${indexNo} '' )"
+    local startNodeSelectGroup="$( echo ${selectGroupNodeFromTo} | cut -d ' ' -f 1 )"
+    local endNodeSelectGroup="$(   echo ${selectGroupNodeFromTo} | cut -d ' ' -f 2 )"
+
+    local startLineSelectGroup="$( getLineNo ${startNodeSelectGroup} 1 )"
+    local endLineSelectGroup="$(   getLineNo ${endNodeSelectGroup} 9 )"
+
+    local endLineHeader="$(( ${startLineSelectGroup} - 1 ))"
+    local startLineFooter="$(( ${endLineSelectGroup} + 1 ))"
+
+    (
+      if [[ ${indexNo} -eq 1 ]]; then
+        printf '' > "${tmpfileHeader}"
+      else
+        cat "${inputFile}" | { head -n "${endLineHeader}" > "${tmpfileHeader}"; cat >/dev/null;}
+      fi
+      wait
+    )
+    (
+      if [[ ${indexNo} -eq 1 ]] ; then
+        cat "${inputFile}" | { sed -n "1, ${endLineSelectGroup}p" > "${tmpfileSelect}"; cat >/dev/null;}
+      else
+        if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
+          cat "${inputFile}" | { tail -n +${startLineSelectGroup}  > "${tmpfileSelect}"; cat >/dev/null;}
+        else
+          cat "${inputFile}" | { sed -n "${startLineSelectGroup},${endLineSelectGroup}p" > "${tmpfileSelect}"; cat >/dev/null;}
+        fi
+      fi
+      wait
+    )
+    (
+      if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
+        printf '' > "${tmpfileFooter}"
+      else
+        tail -n +"${startLineFooter}" "${inputFile}" > "${tmpfileFooter}"
+      fi
+      wait
+    )
+
+    local titleLine="$(cat ${tmpfileSelect} | head -n 1)"
+    local content="$(tail -n +2 ${tmpfileSelect} | sed -E 's/^\.+\t.+//g')"
+
+    echo -e "${titleLine}\n${content}" > "${tmpfileSelect}"
+    sed -i -e '$a\' "${tmpfileSelect}" #編集の結果末尾に改行がない場合'
+    
+    cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileFooter}" > "${inputFile}"
+
     bash "${0}" "${inputFile}" 't'
     exit 0
   }
@@ -1182,7 +1229,7 @@ selected_viewer='selected_viewer'
     local depth=$(getDepth ${indexNo})
 
     #動作指定のチェック
-    allowActionList=('h' 'e' 'd' 'gd' 'i' 'ie' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c' 'gc' 's' 'o')
+    allowActionList=('h' 'e' 'd' 'gd' 'i' 'ie' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'c' 'gc' 's' 'o')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -ne 0 ]] ; then
       echo '引数2:無効なアクションです'
@@ -1191,7 +1238,7 @@ selected_viewer='selected_viewer'
     fi
 
     unset allowActionList
-    allowActionList=('e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'c' 'gc' 's' 'o')
+    allowActionList=('e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'c' 'gc' 's' 'o')
     printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
     if [[ ${?} -eq 0 ]] ; then
       if [[ ${indexNo} = '' ]] ; then
@@ -1353,6 +1400,8 @@ selected_viewer='selected_viewer'
               'c')  dispGroupCharCount
                     ;;
               'd')  deleteGroup
+                    ;;
+              'j')  joinGroup
                     ;;
               *)  case "${char3}" in 
                     [ud]) clear
