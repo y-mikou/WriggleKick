@@ -1031,12 +1031,15 @@ selected_viewer='selected_viewer'
   ##############################################################################
   function joinGroup {
 
-    selectNodeLineFromTo="$( getLineNo ${indexNo} '' )"
-    startLineSelectNode="$( echo ${selectNodeLineFromTo} | cut -d ' ' -f 1 )"
-    endLineSelectNode="$(   echo ${selectNodeLineFromTo} | cut -d ' ' -f 2 )"
+    local selectGroupNodeFromTo="$( getNodeNoInGroup ${indexNo} '' )"
+    local startNodeSelectGroup="$( echo ${selectGroupNodeFromTo} | cut -d ' ' -f 1 )"
+    local endNodeSelectGroup="$(   echo ${selectGroupNodeFromTo} | cut -d ' ' -f 2 )"
 
-    endLineHeader="$(( ${startLineSelectNode} -1 ))"
-    startLineFooter="$(( ${endLineSelectNode} +1 ))"
+    local startLineSelectGroup="$( getLineNo ${startNodeSelectGroup} 1 )"
+    local endLineSelectGroup="$(   getLineNo ${endNodeSelectGroup} 9 )"
+
+    local endLineHeader="$(( ${startLineSelectGroup} - 1 ))"
+    local startLineFooter="$(( ${endLineSelectGroup} + 1 ))"
 
     (
       if [[ ${indexNo} -eq 1 ]]; then
@@ -1048,12 +1051,12 @@ selected_viewer='selected_viewer'
     )
     (
       if [[ ${indexNo} -eq 1 ]] ; then
-        cat "${inputFile}" | { sed -n "1, ${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
+        cat "${inputFile}" | { sed -n "1, ${endLineSelectGroup}p" > "${tmpfileSelect}"; cat >/dev/null;}
       else
         if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
-          cat "${inputFile}" | { tail -n +${startLineSelectNode}  > "${tmpfileSelect}"; cat >/dev/null;}
+          cat "${inputFile}" | { tail -n +${startLineSelectGroup}  > "${tmpfileSelect}"; cat >/dev/null;}
         else
-          cat "${inputFile}" | { sed -n "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
+          cat "${inputFile}" | { sed -n "${startLineSelectGroup},${endLineSelectGroup}p" > "${tmpfileSelect}"; cat >/dev/null;}
         fi
       fi
       wait
@@ -1066,14 +1069,13 @@ selected_viewer='selected_viewer'
       fi
       wait
     )
-    cat "${tmpfileSelect}"
-    local titoleLine="$(head -n 1 ${tmpfileSelect})"
-    local content="$(tail -n +2 ${tmpfileSelect})"
-    cat "${content}" #| sed -i 's/\.\t.+\n//g'
 
-    exit 1
+    local titleLine="$(cat ${tmpfileSelect} | head -n 1)"
+    local content="$(tail -n +2 ${tmpfileSelect} | sed -E 's/^\.+\t.+//g')"
 
+    echo -e "${titleLine}\n${content}" > "${tmpfileSelect}"
     sed -i -e '$a\' "${tmpfileSelect}" #編集の結果末尾に改行がない場合'
+    
     cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileFooter}" > "${inputFile}"
 
     bash "${0}" "${inputFile}" 't'
