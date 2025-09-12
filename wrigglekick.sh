@@ -509,19 +509,19 @@ selected_viewer='selected_viewer'
         seq ${depth} | while read -r line; do printf ' '; done
         
         case "${depth}" in
-          '1') printf '📚️'
+          '1') printf '📚️ '
               ;;
-          '2') printf '└📗'
+          '2') printf '└📗 '
               ;;
-          [34]) printf '└📖'
+          [34]) printf '└📖 '
                 ;;
-          [567]) printf '└📄'
+          [567]) printf '└📄 '
                 ;;
-          [89]) printf '└🏷️'
+          [89]) printf '└🏷️ '
                 ;;
-          '10')  printf '└🗨️'
+          '10')  printf '└🗨️ '
                 ;;        
-          *) printf '└🗨️'
+          *) printf '└🗨️ '
             ;;
         esac 
 
