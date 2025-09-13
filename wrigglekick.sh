@@ -47,6 +47,58 @@ selected_viewer='selected_viewer'
   }
 }
 
+: "ノード検索最適化ユーティリティ" && {
+  ##############################################################################
+  ##############################################################################
+  declare -A nodesByDepth
+  declare -A nodeGroupStart
+  declare -A nodeGroupEnd
+  declare -A nextSiblingNode
+  declare -A prevSiblingNode
+  
+  function buildNodeIndices {
+    unset nodesByDepth nodeGroupStart nodeGroupEnd nextSiblingNode prevSiblingNode
+    declare -gA nodesByDepth nodeGroupStart nodeGroupEnd nextSiblingNode prevSiblingNode
+    
+    for i in $(seq 1 ${maxNodeCnt}); do
+      local depth="${nodeDepths[$((i-1))]}"
+      if [[ -z "${nodesByDepth[$depth]}" ]]; then
+        nodesByDepth[$depth]="$i"
+      else
+        nodesByDepth[$depth]="${nodesByDepth[$depth]} $i"
+      fi
+    done
+    
+    for i in $(seq 1 ${maxNodeCnt}); do
+      local currentDepth="${nodeDepths[$((i-1))]}"
+      local groupStart="$i"
+      local groupEnd="$maxNodeCnt"
+      
+      for j in $(seq $((i + 1)) ${maxNodeCnt}); do
+        local checkDepth="${nodeDepths[$((j-1))]}"
+        if [[ $checkDepth -le $currentDepth ]]; then
+          groupEnd=$((j - 1))
+          break
+        fi
+      done
+      
+      nodeGroupStart[$i]="$groupStart"
+      nodeGroupEnd[$i]="$groupEnd"
+      
+      for j in $(seq $((groupEnd + 1)) ${maxNodeCnt}); do
+        local siblingDepth="${nodeDepths[$((j-1))]}"
+        if [[ $siblingDepth -eq $currentDepth ]]; then
+          nextSiblingNode[$i]="$j"
+          prevSiblingNode[$j]="$i"
+          break
+        elif [[ $siblingDepth -lt $currentDepth ]]; then
+          break
+        fi
+      done
+    done
+  }
+}
+
 : "ノード検出" && {
   ##############################################################################
   # グローバル配列
@@ -141,6 +193,8 @@ selected_viewer='selected_viewer'
       fi
 
     done
+    
+    buildNodeIndices
   }
 }
 
@@ -278,20 +332,10 @@ selected_viewer='selected_viewer'
   function getNodeNoInGroup {
     local selectNodeNo="${1}"
     local mode="${2}"
-    local selectNoedDepth="$( getDepth ${selectNodeNo} )"
-
-    startNodeSelectGroup="${selectNodeNo}"
-    endNodeSelectGroup="${maxNodeCnt}"
-
-    for i in $( seq "$(( ${selectNodeNo} + 1 ))" "${maxNodeCnt}") ;
-    do
-      depthCheck="$( getDepth ${i} )"
-      if [[ ${depthCheck} -le ${selectNoedDepth} ]] ; then
-        endNodeSelectGroup="$(( ${i} - 1 ))"
-        break
-      fi
-    done
-
+    
+    local startNodeSelectGroup="${nodeGroupStart[$selectNodeNo]}"
+    local endNodeSelectGroup="${nodeGroupEnd[$selectNodeNo]}"
+    
     case "${mode}" in
       '') echo "${startNodeSelectGroup} ${endNodeSelectGroup}" ;;
       1) echo  "${startNodeSelectGroup}" ;;
@@ -314,37 +358,20 @@ selected_viewer='selected_viewer'
     local selectNodeNo="${1}"
     local direction="${2}"
     local mode="${3}"
-    local selectNodeDepth="$( getDepth ${selectNodeNo} )"
-
+    local selectNodeDepth="${nodeDepths[$((selectNodeNo-1))]}"
+    
+    local returnNodeNo=""
+    
     case "${direction}" in
-      '')   local inc=1
-            local goal="${maxNodeCnt}"
-            ;;
-      [uU]) local inc=-1
-            local goal=1
-            ;;
-      [dD]) local inc=1
-            local goal="${maxNodeCnt}"
-            ;;
-      *)    local inc=1
-            local goal=1
-            ;;
+      [uU]) returnNodeNo="${prevSiblingNode[$selectNodeNo]}" ;;
+      [dD]) returnNodeNo="${nextSiblingNode[$selectNodeNo]}" ;;
+      *)    returnNodeNo="${nextSiblingNode[$selectNodeNo]}" ;;
     esac
-
-    for i in $( seq $(( "${selectNodeNo}" + "${inc}" )) "${inc}" "${goal}" ) ;
-    do
-      depth="$( getDepth ${i} )"
-      if [[ ${depth} -le ${selectNodeDepth} ]] ; then
-        returnNodeNo="${i}"
-        break
-      fi
-    done
-
-    if [[ ${depth} -ne ${selectNodeDepth} ]] ; then
-      returnNodeNo=''
+    
+    if [[ -z "$returnNodeNo" ]]; then
       exit 100
     fi
-
+    
     local TargetGroupFromTo="$(getNodeNoInGroup ${returnNodeNo} '' )"
     local startnodeTargetGroup="$( echo ${TargetGroupFromTo} | cut -d ' ' -f 1 )"
     local endnodeTargetGroup="$(   echo ${TargetGroupFromTo} | cut -d ' ' -f 2 )"
@@ -826,14 +853,16 @@ selected_viewer='selected_viewer'
     local endNodeSelectGroup="$(   echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 2 )"
 
     case "${char3}" in
-      'l')  for i in $(seq "${startNodeSelectGroup}" "${endNodeSelectGroup}") ;
-            do
+      'l')  local startNode="${nodeGroupStart[$indexNo]}"
+            local endNode="${nodeGroupEnd[$indexNo]}"
+            for i in $(seq "${startNode}" "${endNode}") ; do
               tgtLine="$( getLineNo ${i} 1 )"
               sed -i -e "${tgtLine} s/^\.\./\./g" "${inputFile}"
             done
             ;;
-      'r')  for i in $(seq "${startNodeSelectGroup}" "${endNodeSelectGroup}") ;
-            do
+      'r')  local startNode="${nodeGroupStart[$indexNo]}"
+            local endNode="${nodeGroupEnd[$indexNo]}"
+            for i in $(seq "${startNode}" "${endNode}") ; do
               tgtLine="$( getLineNo ${i} 1 )"
               sed -i -e "${tgtLine} s/^\./\.\./g" "${inputFile}"
             done
