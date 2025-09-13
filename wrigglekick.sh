@@ -34,6 +34,8 @@ function arrayContains {
     local cleaned="${input//[^$'\t']*$'\t'/}"
     cleaned="${cleaned//$'\n'/}"
     echo "${#cleaned}"
+  }
+}
 
 : "ファイルキャッシュ系" && {
   function loadFileCache {
@@ -889,40 +891,6 @@ function arrayContains {
               startLineNextNode="$( getLineNo ${indexNextNode} 1 )"
             fi
             
-<<<<<<< HEAD
-            (
-              getCachedLines "1" "${endLinePreviousNode}" > "${tmpfileHeader}"
-              getCachedLines "${startLineTargetNode}" "${endLineTargetNode}" > "${tmpfileTarget}"
-              getCachedLines "${startLineSelectNode}" "${endLineSelectNode}" > "${tmpfileSelect}"
-              if [[ ! "${startLineNextNode}" = '' ]] ; then 
-                getCachedLines "${startLineNextNode}" "${maxLineCnt}" > "${tmpfileFooter}"
-              fi
-              wait
-            )
-            (
-              cat "${tmpfileHeader}" "${tmpfileSelect}" > "${tmpfile1}"
-              cat "${tmpfileTarget}" "${tmpfileFooter}" > "${tmpfile2}"
-              wait
-            )
-            cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
-            invalidateCache
-||||||| d47530f
-            (
-              cat "${inputFile}" | { head -n "${endLinePreviousNode}" > "${tmpfileHeader}"; cat >/dev/null;}
-              cat "${inputFile}" | { sed -sn "${startLineTargetNode},${endLineTargetNode}p" > "${tmpfileTarget}"; cat >/dev/null;}
-              cat "${inputFile}" | { sed -sn "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
-              if [[ ! "${startLineNextNode}" = '' ]] ; then 
-                tail -n +"${startLineNextNode}" "${inputFile}" > "${tmpfileFooter}"
-              fi
-              wait
-            )
-            (
-              cat "${tmpfileHeader}" "${tmpfileSelect}" > "${tmpfile1}"
-              cat "${tmpfileTarget}" "${tmpfileFooter}" > "${tmpfile2}"
-              wait
-            )
-            cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
-=======
             writeLinesToVar "tmpContentHeader" "1" "${endLinePreviousNode}"
             writeLinesToVar "tmpContentTarget" "${startLineTargetNode}" "${endLineTargetNode}"
             writeLinesToVar "tmpContentSelect" "${startLineSelectNode}" "${endLineSelectNode}"
@@ -937,7 +905,6 @@ function arrayContains {
             tmpContent2="${tmpContentTarget}${tmpContentFooter:+$'\n'$tmpContentFooter}"
             
             printf '%s\n%s\n' "$tmpContent1" "$tmpContent2" > "${inputFile}"
->>>>>>> origin/devin/1757742688-reduce-temp-files
 
             ;;
 
@@ -961,48 +928,6 @@ function arrayContains {
               endLineTargetNode="${targetNodeArray[1]}"
               startLineNextNode="$( getLineNo ${indexNextNode}   1 )"
             fi
-<<<<<<< HEAD
-            (
-              if [[ ${indexNo} -eq 1 ]] ; then
-                echo '' > "${tmpfileHeader}"
-              else
-                getCachedLines "1" "${endLinePreviousNode}" > "${tmpfileHeader}"
-              fi
-              getCachedLines "${startLineTargetNode}" "${endLineTargetNode}" > "${tmpfileTarget}"
-              getCachedLines "${startLineSelectNode}" "${endLineSelectNode}" > "${tmpfileSelect}"
-              if [[ ! ${startLineNextNode} = '' ]] ; then 
-                getCachedLines "${startLineNextNode}" "${maxLineCnt}" > "${tmpfileFooter}"
-              fi
-              wait
-            )
-            (
-              cat "${tmpfileHeader}" "${tmpfileTarget}" > "${tmpfile1}"
-              cat "${tmpfileSelect}" "${tmpfileFooter}" > "${tmpfile2}"
-              wait
-            )
-            cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
-            invalidateCache
-||||||| d47530f
-            (
-              if [[ ${indexNo} -eq 1 ]] ; then
-                echo '' > "${tmpfileHeader}"
-              else
-                cat "${inputFile}" | { head -n "${endLinePreviousNode}" > "${tmpfileHeader}"; cat >/dev/null;}
-              fi
-              cat "${inputFile}" | { sed -sn "${startLineTargetNode},${endLineTargetNode}p" > "${tmpfileTarget}"; cat >/dev/null;} 
-              cat "${inputFile}" | { sed -sn "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
-              if [[ ! ${startLineNextNode} = '' ]] ; then 
-                tail -n +"${startLineNextNode}" "${inputFile}" > "${tmpfileFooter}"
-              fi
-              wait
-            )
-            (
-              cat "${tmpfileHeader}" "${tmpfileTarget}" > "${tmpfile1}"
-              cat "${tmpfileSelect}" "${tmpfileFooter}" > "${tmpfile2}"
-              wait
-            )
-            cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
-=======
             if [[ ${indexNo} -eq 1 ]] ; then
               tmpContentHeader=""
             else
@@ -1020,7 +945,6 @@ function arrayContains {
             tmpContent2="${tmpContentSelect}${tmpContentFooter:+$'\n'$tmpContentFooter}"
             
             printf '%s\n%s\n' "$tmpContent1" "$tmpContent2" > "${inputFile}"
->>>>>>> origin/devin/1757742688-reduce-temp-files
             ;;
 
       *)    echo 'err'
@@ -1164,25 +1088,11 @@ function arrayContains {
       printf '' > "${tmpfileHeader}"
     fi
 
-<<<<<<< HEAD
-    getCachedLines "${startLineTargetGroup}" "${endLineTargetGroup}" > "${tmpfileTarget}"
-    getCachedLines "${startLineSelectGroup}" "${endLineSelectGroup}" > "${tmpfileSelect}"
-||||||| d47530f
-    cat "${inputFile}" | { sed -sn "${startLineTargetGroup},${endLineTargetGroup}p" > "${tmpfileTarget}"; cat >/dev/null;} 
-    cat "${inputFile}" | { sed -sn "${startLineSelectGroup},${endLineSelectGroup}p" > "${tmpfileSelect}"; cat >/dev/null;}
-=======
     writeLinesToVar "tmpContentTarget" "${startLineTargetGroup}" "${endLineTargetGroup}"
     writeLinesToVar "tmpContentSelect" "${startLineSelectGroup}" "${endLineSelectGroup}"
->>>>>>> origin/devin/1757742688-reduce-temp-files
 
     if [[ ${startLineFooterGroup} -ne ${maxLineCnt} ]] ; then
-<<<<<<< HEAD
-      getCachedLines "${startLineFooterGroup}" "${maxLineCnt}" > "${tmpfileFooter}"
-||||||| d47530f
-      tail -n +"${startLineFooterGroup}" "${inputFile}" > "${tmpfileFooter}"
-=======
       writeLinesToVar "tmpContentFooter" "${startLineFooterGroup}" ""
->>>>>>> origin/devin/1757742688-reduce-temp-files
     else
       tmpContentFooter=""
     fi
@@ -1200,14 +1110,7 @@ function arrayContains {
             ;;
     esac
 
-<<<<<<< HEAD
-    cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
-    invalidateCache
-||||||| d47530f
-    cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
-=======
     printf '%s\n%s\n' "$tmpContent1" "$tmpContent2" > "${inputFile}"
->>>>>>> origin/devin/1757742688-reduce-temp-files
     bash "${0}" "${inputFile}" 't'
     exit 0
 
