@@ -1,44 +1,52 @@
 #!/bin/bash
 
+declare -a fileContentCache=()
+declare cachedFileName=""
+declare cacheValid=false
+
 #エディタ、ビューワーの指定
 selected_editor='selected_editor'
                 #^^^^^^^^^^^^^^^ここにお好みのエディター呼び出しコマンドを設定してください
 selected_viewer='selected_viewer'
                 #^^^^^^^^^^^^^^^ここにお好みのビューワー呼び出しコマンドを設定してください
 
-: "外部プロセス最適化ユーティリティ" && {
+: "ファイルキャッシュ系" && {
   ##############################################################################
   ##############################################################################
-  function extractField {
-    local input="${1}"
-    local fieldNum="${2}"
-    local IFS=$'\t'
-    local -a fields=($input)
-    echo "${fields[$((fieldNum-1))]}"
+  function loadFileCache {
+    local targetFile="${1}"
+    if [[ "${cachedFileName}" != "${targetFile}" ]] || [[ "${cacheValid}" != true ]]; then
+      readarray -t fileContentCache < "${targetFile}"
+      cachedFileName="${targetFile}"
+      cacheValid=true
+    fi
   }
 
   ##############################################################################
   ##############################################################################
-  function arrayContains {
-    local target="${1}"
-    shift
-    local element
-    for element in "$@"; do
-      [[ "${element}" == "${target}" ]] && return 0
+  function invalidateCache {
+    cacheValid=false
+  }
+
+  ##############################################################################
+  ##############################################################################
+  function getCachedLines {
+    local startLine="${1}"
+    local endLine="${2}"
+    local i
+    for i in $(seq $((startLine-1)) $((endLine-1))); do
+      if [[ ${i} -lt ${#fileContentCache[@]} ]]; then
+        echo "${fileContentCache[${i}]}"
+      fi
     done
-    return 1
   }
 
   ##############################################################################
   ##############################################################################
-  function countNonDotChars {
-    local input="${1}"
-    local cleaned="${input//[^$'\t']*$'\t'/}"
-    cleaned="${cleaned//$'\n'/}"
-    echo "${#cleaned}"
+  function getCachedLineCount {
+    echo "${#fileContentCache[@]}"
   }
 }
-
 : "ヘルプ表示" && {
   ##############################################################################
   # 引数:なし
@@ -111,11 +119,10 @@ selected_viewer='selected_viewer'
     local nextEntry
     local nextStartLine
 
-    readarray -t indexlist < <(grep -nP '^\.+\t.+' ${inputFile})
-    readarray -t fileLines < "${inputFile}"
-
+    loadFileCache "${inputFile}"
+    readarray -t indexlist < <(printf '%s\n' "${fileContentCache[@]}" | grep -nP '^\.+\t.+')
     maxNodeCnt="${#indexlist[@]}"
-    maxLineCnt="${#fileLines[@]}"
+    maxLineCnt="$(getCachedLineCount)"
 
     nodeStartLines=()
     nodeEndLines=()
@@ -163,14 +170,12 @@ selected_viewer='selected_viewer'
         if [[ ${startLine} -eq ${endLine} ]] ; then
           charCount=0
         else
-          local contentLines=""
-          for ((lineNum=startLine; lineNum<=endLine; lineNum++)); do
-            local line="${fileLines[$((lineNum-1))]}"
-            if [[ ! "${line}" =~ ^\. ]]; then
-              contentLines+="${line}"
-            fi
-          done
-          charCount="${#contentLines}"
+          charCount="$( \
+            getCachedLines "${startLine}" "${endLine}" \
+          | sed -E "s/^\..*//g" \
+          | sed -z "s/\n//g" \
+          | wc -m \
+          )"
         fi
         nodeCharCount+=("${charCount}")
       fi
@@ -205,6 +210,7 @@ selected_viewer='selected_viewer'
     modifiedTitlelineContent="$( echo -e "${part_before}\t${modifiyProgress}\t${part_after}" )"
 
     sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
+    invalidateCache
 
     bash "${0}" "${inputFile}" 'tl'
     exit 0
@@ -227,6 +233,7 @@ selected_viewer='selected_viewer'
     local modifiedTitlelineContent="$( echo -e "${part_before}\t${modifySymbol}" )"
 
     sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
+    invalidateCache
 
     bash "${0}" "${inputFile}" 't'
     exit 0
@@ -297,7 +304,7 @@ selected_viewer='selected_viewer'
   ##############################################################################
   function getNodeTitlelineContent {
     local selectNodeLineNo="${nodeStartLines[ $(( ${1}-1 )) ]}"
-    echo "${fileLines[$((selectNodeLineNo-1))]}"
+    getCachedLines "${selectNodeLineNo}" "${selectNodeLineNo}"
   }
 }
 
@@ -404,7 +411,7 @@ selected_viewer='selected_viewer'
     local startLineSelectGroup="$( getLineNo $( echo ${tgtGroup} | cut -d ' ' -f 1 ) 1 )"
     local endLineSelectGroup="$( getLineNo $( echo ${tgtGroup} | cut -d ' ' -f 2 ) 9 )"
 
-    cat "${inputFile}" | sed -sn "${startLineSelectGroup},${endLineSelectGroup}p" > "${tmpfileTarget}"
+    getCachedLines "${startLineSelectGroup}" "${endLineSelectGroup}" > "${tmpfileTarget}"
     "${selected_viewer}" "${tmpfileTarget}"
     bash "${0}" "${inputFile}" 't'
     exit 0
@@ -635,18 +642,18 @@ selected_viewer='selected_viewer'
       if [[ ${indexNo} -eq 1 ]]; then
         printf '' > "${tmpfileHeader}"
       else
-        cat "${inputFile}" | { head -n "${endLineHeader}" > "${tmpfileHeader}"; cat >/dev/null;}
+        getCachedLines "1" "${endLineHeader}" > "${tmpfileHeader}"
       fi
       wait
     )
     (
       if [[ ${indexNo} -eq 1 ]] ; then
-        cat "${inputFile}" | { sed -n "1, ${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
+        getCachedLines "1" "${endLineSelectNode}" > "${tmpfileSelect}"
       else
         if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
-          cat "${inputFile}" | { tail -n +${startLineSelectNode}  > "${tmpfileSelect}"; cat >/dev/null;}
+          getCachedLines "${startLineSelectNode}" "${maxLineCnt}" > "${tmpfileSelect}"
         else
-          cat "${inputFile}" | { sed -n "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
+          getCachedLines "${startLineSelectNode}" "${endLineSelectNode}" > "${tmpfileSelect}"
         fi
       fi
       wait
@@ -655,7 +662,7 @@ selected_viewer='selected_viewer'
       if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
         printf '' > "${tmpfileFooter}"
       else
-        tail -n +"${startLineFooter}" "${inputFile}" > "${tmpfileFooter}"
+        getCachedLines "${startLineFooter}" "${maxLineCnt}" > "${tmpfileFooter}"
       fi
       wait
     )
@@ -694,15 +701,17 @@ selected_viewer='selected_viewer'
     dots="$(seq ${depth} | while read -r line; do printf '.'; done)"
 
     echo -e "${dots}\t${nlString}" > "${tmpfileSelect}"
-    cat "${inputFile}" | { head -n "${endLinePreviousNode}" > "${tmpfileHeader}"; cat >/dev/null;}
+    getCachedLines "1" "${endLinePreviousNode}" > "${tmpfileHeader}"
 
     if [[ ${indexNo} -eq ${maxNodeCnt} ]] ;then
       awk 1 "${inputFile}" "${tmpfileSelect}" > "${tmpfile1}"
       cat "${tmpfile1}" > "${inputFile}"
+      invalidateCache
 
     else
-      cat "${inputFile}" | { tail -n +${startLineNextNode}  > "${tmpfileFooter}"; cat >/dev/null;}
+      getCachedLines "${startLineNextNode}" "${maxLineCnt}" > "${tmpfileFooter}"
       cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileFooter}" > "${inputFile}"
+      invalidateCache
     fi
   }
 
@@ -739,8 +748,10 @@ selected_viewer='selected_viewer'
 
     case "${char2}" in
       'l')  sed -i -e "$tgtLine s/^\.\./\./g" "${inputFile}"
+            invalidateCache
             ;;
       'r')  sed -i -e "$tgtLine s/^/\./g" "${inputFile}"
+            invalidateCache
             ;;
       *)    echo 'err'
             exit 9
@@ -792,11 +803,11 @@ selected_viewer='selected_viewer'
             fi
             
             (
-              cat "${inputFile}" | { head -n "${endLinePreviousNode}" > "${tmpfileHeader}"; cat >/dev/null;}
-              cat "${inputFile}" | { sed -sn "${startLineTargetNode},${endLineTargetNode}p" > "${tmpfileTarget}"; cat >/dev/null;}
-              cat "${inputFile}" | { sed -sn "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
+              getCachedLines "1" "${endLinePreviousNode}" > "${tmpfileHeader}"
+              getCachedLines "${startLineTargetNode}" "${endLineTargetNode}" > "${tmpfileTarget}"
+              getCachedLines "${startLineSelectNode}" "${endLineSelectNode}" > "${tmpfileSelect}"
               if [[ ! "${startLineNextNode}" = '' ]] ; then 
-                tail -n +"${startLineNextNode}" "${inputFile}" > "${tmpfileFooter}"
+                getCachedLines "${startLineNextNode}" "${maxLineCnt}" > "${tmpfileFooter}"
               fi
               wait
             )
@@ -806,6 +817,7 @@ selected_viewer='selected_viewer'
               wait
             )
             cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
+            invalidateCache
 
             ;;
 
@@ -821,7 +833,7 @@ selected_viewer='selected_viewer'
             startLineTargetNode="${targetNodeArray[0]}"
 
             if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
-              endLineTargetNode="${#fileLines[@]}"
+              endLineTargetNode="$(getCachedLineCount)"
             else
               endLineTargetNode="${targetNodeArray[1]}"
               startLineNextNode="$( getLineNo ${indexNextNode}   1 )"
@@ -830,12 +842,12 @@ selected_viewer='selected_viewer'
               if [[ ${indexNo} -eq 1 ]] ; then
                 echo '' > "${tmpfileHeader}"
               else
-                cat "${inputFile}" | { head -n "${endLinePreviousNode}" > "${tmpfileHeader}"; cat >/dev/null;}
+                getCachedLines "1" "${endLinePreviousNode}" > "${tmpfileHeader}"
               fi
-              cat "${inputFile}" | { sed -sn "${startLineTargetNode},${endLineTargetNode}p" > "${tmpfileTarget}"; cat >/dev/null;} 
-              cat "${inputFile}" | { sed -sn "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
+              getCachedLines "${startLineTargetNode}" "${endLineTargetNode}" > "${tmpfileTarget}"
+              getCachedLines "${startLineSelectNode}" "${endLineSelectNode}" > "${tmpfileSelect}"
               if [[ ! ${startLineNextNode} = '' ]] ; then 
-                tail -n +"${startLineNextNode}" "${inputFile}" > "${tmpfileFooter}"
+                getCachedLines "${startLineNextNode}" "${maxLineCnt}" > "${tmpfileFooter}"
               fi
               wait
             )
@@ -845,6 +857,7 @@ selected_viewer='selected_viewer'
               wait
             )
             cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
+            invalidateCache
             ;;
 
       *)    echo 'err'
@@ -875,12 +888,14 @@ selected_viewer='selected_viewer'
               tgtLine="$( getLineNo ${i} 1 )"
               sed -i -e "${tgtLine} s/^\.\./\./g" "${inputFile}"
             done
+            invalidateCache
             ;;
       'r')  for i in $(seq "${startNodeSelectGroup}" "${endNodeSelectGroup}") ;
             do
               tgtLine="$( getLineNo ${i} 1 )"
               sed -i -e "${tgtLine} s/^\./\.\./g" "${inputFile}"
             done
+            invalidateCache
             ;;
       *)    echo 'err'
             read -s -n 1 c
@@ -979,16 +994,16 @@ selected_viewer='selected_viewer'
     }
 
    if [[ ${endLineHeaderGroup} -ne 0 ]] ; then
-     cat "${inputFile}" | { head -n "${endLineHeaderGroup}" > "${tmpfileHeader}"; cat >/dev/null;}
+     getCachedLines "1" "${endLineHeaderGroup}" > "${tmpfileHeader}"
     else
       printf '' > "${tmpfileHeader}"
     fi
 
-    cat "${inputFile}" | { sed -sn "${startLineTargetGroup},${endLineTargetGroup}p" > "${tmpfileTarget}"; cat >/dev/null;} 
-    cat "${inputFile}" | { sed -sn "${startLineSelectGroup},${endLineSelectGroup}p" > "${tmpfileSelect}"; cat >/dev/null;}
+    getCachedLines "${startLineTargetGroup}" "${endLineTargetGroup}" > "${tmpfileTarget}"
+    getCachedLines "${startLineSelectGroup}" "${endLineSelectGroup}" > "${tmpfileSelect}"
 
     if [[ ${startLineFooterGroup} -ne ${maxLineCnt} ]] ; then
-      tail -n +"${startLineFooterGroup}" "${inputFile}" > "${tmpfileFooter}"
+      getCachedLines "${startLineFooterGroup}" "${maxLineCnt}" > "${tmpfileFooter}"
     else
       printf '' > "${tmpfileFooter}"
     fi
@@ -1010,6 +1025,7 @@ selected_viewer='selected_viewer'
     )
 
     cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
+    invalidateCache
     bash "${0}" "${inputFile}" 't'
     exit 0
 
@@ -1037,7 +1053,7 @@ selected_viewer='selected_viewer'
       if [[ ${endLineHeader} -eq 0 ]]; then
         printf '' > "${tmpfileHeader}"
       else
-        cat "${inputFile}" | { head -n "${endLineHeader}" > "${tmpfileHeader}"; cat >/dev/null;}
+        getCachedLines "1" "${endLineHeader}" > "${tmpfileHeader}"
       fi
       wait
     )
@@ -1045,12 +1061,13 @@ selected_viewer='selected_viewer'
       if [[ ${startLineFooter} -gt ${maxLineCnt} ]] ; then
         printf '' > "${tmpfileFooter}"
       else
-        tail -n +"${startLineFooter}" "${inputFile}" > "${tmpfileFooter}"
+        getCachedLines "${startLineFooter}" "${maxLineCnt}" > "${tmpfileFooter}"
       fi
       wait
     )
 
     cat "${tmpfileHeader}" "${tmpfileFooter}" > "${inputFile}"
+    invalidateCache
 
     bash "${0}" "${inputFile}" 't'
     exit 0
@@ -1067,6 +1084,7 @@ selected_viewer='selected_viewer'
 
     local tgtLine="$( echo ${nodeStartLines[${indexNo}]} )"
     sed -i "${tgtLine}d" "${inputFile}"
+    invalidateCache
     bash "${0}" "${inputFile}" 't'
     exit 0
   }
@@ -1092,18 +1110,18 @@ selected_viewer='selected_viewer'
       if [[ ${indexNo} -eq 1 ]]; then
         printf '' > "${tmpfileHeader}"
       else
-        cat "${inputFile}" | { head -n "${endLineHeader}" > "${tmpfileHeader}"; cat >/dev/null;}
+        getCachedLines "1" "${endLineHeader}" > "${tmpfileHeader}"
       fi
       wait
     )
     (
       if [[ ${indexNo} -eq 1 ]] ; then
-        cat "${inputFile}" | { sed -n "1, ${endLineSelectGroup}p" > "${tmpfileSelect}"; cat >/dev/null;}
+        getCachedLines "1" "${endLineSelectGroup}" > "${tmpfileSelect}"
       else
         if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
-          cat "${inputFile}" | { tail -n +${startLineSelectGroup}  > "${tmpfileSelect}"; cat >/dev/null;}
+          getCachedLines "${startLineSelectGroup}" "${maxLineCnt}" > "${tmpfileSelect}"
         else
-          cat "${inputFile}" | { sed -n "${startLineSelectGroup},${endLineSelectGroup}p" > "${tmpfileSelect}"; cat >/dev/null;}
+          getCachedLines "${startLineSelectGroup}" "${endLineSelectGroup}" > "${tmpfileSelect}"
         fi
       fi
       wait
@@ -1112,7 +1130,7 @@ selected_viewer='selected_viewer'
       if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
         printf '' > "${tmpfileFooter}"
       else
-        tail -n +"${startLineFooter}" "${inputFile}" > "${tmpfileFooter}"
+        getCachedLines "${startLineFooter}" "${maxLineCnt}" > "${tmpfileFooter}"
       fi
       wait
     )
@@ -1124,6 +1142,7 @@ selected_viewer='selected_viewer'
     sed -i -e '$a\' "${tmpfileSelect}" #編集の結果末尾に改行がない場合'
     
     cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileFooter}" > "${inputFile}"
+    invalidateCache
 
     bash "${0}" "${inputFile}" 't'
     exit 0
@@ -1167,6 +1186,7 @@ selected_viewer='selected_viewer'
     if [[ ${maxNodeCnt} -eq 0 ]] ; then
       echo 'ノードがありません。先頭に第一ノードを追加します' 
       sed -i -e '1s|^|.\t1st Node\n|g' "${inputFile}"
+      invalidateCache
       read -s -n 1 c
       bash "${0}" "${inputFile}" 't'
       exit 0
