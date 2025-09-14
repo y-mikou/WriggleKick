@@ -149,8 +149,8 @@ selected_viewer='selected_viewer'
       depth="${depth%%[^.]*}"
       depth="${#depth}"
       
-      title="$(extractField "${content}" 2)"
-      symbol="$(extractField "${content}" 4)"
+      title="$(echo "${content}" | cut -f2)"
+      symbol="$(echo "${content}" | cut -f4)"
       symbol="${symbol:0:1}" #1文字のみ
       
       nodeStartLines+=("${startLine}")
@@ -159,13 +159,13 @@ selected_viewer='selected_viewer'
       nodeTitles+=("${title}")
       nodeSymbol+=("${symbol:=　}") #設定されていない場合には空白を一時的に設定
 
-      progress="$(extractField "${content}" 3)"
+      progress="$(echo "${content}" | cut -f3)"
       nodeProgress+=("${progress:=0}")
 
       #taかtlの場合以外はスキップする
 
       local countActionList=('tl' 'ta' 'fl' 'fa')
-      if arrayContains "${action}" "${countActionList[@]}"; then
+      if printf '%s\n' "${countActionList[@]}" | grep -qx "${action}"; then
         #次の行がすぐに次のノードタイトル行(純粋なタイトル行)の場合は0文字
         if [[ ${startLine} -eq ${endLine} ]] ; then
           charCount=0
@@ -203,9 +203,9 @@ selected_viewer='selected_viewer'
     local targetLineNo="${nodeStartLines[$((indexNo-1))]}"
     local presentTitlelineContent="$( getNodeTitlelineContent ${indexNo} )"
 
-    local part_before="$(extractField "${presentTitlelineContent}" 1)$(printf '\t')$(extractField "${presentTitlelineContent}" 2)"
-    # local part_progress="$(extractField "${presentTitlelineContent}" 3)"
-    local part_after="$(extractField "${presentTitlelineContent}" 4)"
+    local part_before="$(echo "${presentTitlelineContent}" | cut -f1)$(printf '\t')$(echo "${presentTitlelineContent}" | cut -f2)"
+    # local part_progress="$(echo "${presentTitlelineContent}" | cut -f3)"
+    local part_after="$(echo "${presentTitlelineContent}" | cut -f4)"
 
     modifiedTitlelineContent="$( echo -e "${part_before}\t${modifiyProgress}\t${part_after}" )"
 
@@ -1279,7 +1279,7 @@ selected_viewer='selected_viewer'
     #バックアップ作成
     ######################################
     makeBackupActionList=('e' 'd' 'i' 'ie' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'c' 's')
-    if arrayContains "${action}" "${makeBackupActionList[@]}"; then
+    if printf '%s\n' "${makeBackupActionList[@]}" | grep -qx "${action}"; then
       makeBackup
     fi
 
@@ -1297,7 +1297,7 @@ selected_viewer='selected_viewer'
 
     #動作指定のチェック
     allowActionList=('h' 'e' 'd' 'gd' 'i' 'ie' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'c' 'gc' 's' 'o')
-    if ! arrayContains "${action}" "${allowActionList[@]}"; then
+    if ! printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"; then
       echo '引数2:無効なアクションです'
       read -s -n 1 c
       return 1
@@ -1305,14 +1305,14 @@ selected_viewer='selected_viewer'
 
     unset allowActionList
     allowActionList=('e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'c' 'gc' 's' 'o')
-    if arrayContains "${action}" "${allowActionList[@]}"; then
+    if printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"; then
       if [[ ${indexNo} = '' ]] ; then
         echo "ノードを指定してください"
         read -s -n 1 c
         return 1
       fi
     fi
-    if arrayContains "${action}" "${allowActionList[@]}"; then
+    if printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"; then
       if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxNodeCnt} ]] ; then
         echo "${indexNo}番目のノードは存在しません"
         read -s -n 1 c
@@ -1323,7 +1323,7 @@ selected_viewer='selected_viewer'
     #動作指定とノード番号のチェック(ノード状態の取得が必要なチェックは後続で実施)
     unset allowActionList
     allowActionList=('ml' 'gml')
-    if arrayContains "${action}" "${allowActionList[@]}" && [[ ${depth} -le 1 ]] ; then
+    if printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}" && [[ ${depth} -le 1 ]] ; then
       echo "ノード番号${indexNo}はこれ以上浅く(左に移動)できません"
       read -s -n 1 c
       return 1
@@ -1331,7 +1331,7 @@ selected_viewer='selected_viewer'
 
     unset allowActionList
     allowActionList=('mr' 'gmr')
-    if arrayContains "${action}" "${allowActionList[@]}" && [[ ${depth} -ge 10 ]] ; then
+    if printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}" && [[ ${depth} -ge 10 ]] ; then
       echo "ノード番号${indexNo}の深さは${depth}です。これ以上深く(右に移動)できません"
       read -s -n 1 c
       return 1
@@ -1339,7 +1339,7 @@ selected_viewer='selected_viewer'
 
     unset allowActionList
     allowActionList=('mu' 'gmu')
-    if arrayContains "${action}" "${allowActionList[@]}" && [[ ${indexNo} -eq 1 ]] ; then
+    if printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}" && [[ ${indexNo} -eq 1 ]] ; then
       echo '引数2:1番目のノードは上に移動できません'
       read -s -n 1 c
       return 1
@@ -1347,7 +1347,7 @@ selected_viewer='selected_viewer'
 
     unset allowActionList
     allowActionList=('md' 'gmd')
-    if arrayContains "${action}" "${allowActionList[@]}" && [[ ${indexNo} -ge ${maxNodeCnt} ]] ; then
+    if printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}" && [[ ${indexNo} -ge ${maxNodeCnt} ]] ; then
       echo "引数2:${indexNo}番目のノードは下に移動できません"
       read -s -n 1 c
       return 1
