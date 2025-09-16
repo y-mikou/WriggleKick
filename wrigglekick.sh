@@ -533,14 +533,14 @@ selected_viewer='selected_viewer'
 
         symbols="${nodeSymbol[$((cnt-1))]}"
 
-        printf "%04d" "${cnt}"
+        printf "%4d" "${cnt}"
 
         case "${char2}" in
           '')  :
                 ;;
-          'l') printf " %08d %06d %s" "${startLine}" "${count}" "${progress}"
+          'l') printf " %8d %6d %s" "${startLine}" "${count}" "${progress}"
                 ;;
-          'a') printf " %08d~%08d %03d %06d %s" "${startLine}" "${endLine}" "${depth}" "${count}" "${progress}"
+          'a') printf " %8d~%8d %3d %6d %s" "${startLine}" "${endLine}" "${depth}" "${count}" "${progress}"
                 ;;
           *)    ;;
         esac
