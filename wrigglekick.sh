@@ -1275,6 +1275,13 @@ selected_viewer='selected_viewer'
     
     local depth=$(getDepth ${indexNo})
 
+    #対象ファイルの存在チェック
+    if [[ ! -f ${inputFile} ]] ; then
+      echo "${inputFile} なんてファイルないです"
+      read -s -n 1 c
+      exit 100
+    fi
+
     #動作指定のチェック
     allowActionList=('h' 'e' 'd' 'gd' 'i' 'ie' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'c' 'gc' 's' 'o')
     if ! arrayContains "${action}" "${allowActionList[@]}"; then
@@ -1382,13 +1389,6 @@ selected_viewer='selected_viewer'
     indexNo="${3}"
     option="${4}"
 
-    #対象ファイルの存在チェック
-    if [[ ! -f ${inputFile} ]] ; then
-      echo "${inputFile} なんてファイルないです"
-      read -s -n 1 c
-      exit 100
-    fi
-
     # 初期処理
     myInit
 
@@ -1480,6 +1480,20 @@ selected_viewer='selected_viewer'
 ###########################################
 # エントリーポイント
 ###########################################
+
+if [[ "${1}${2}${3}${4}" = '' ]] ; then
+  echo "引数が与えられなかったためヘルプ表示します"
+  read -s -n 1 c
+  displayHelp
+  read -s -n 1 c
+  exit 0
+fi
+if [[ "${1}" = 'h' ]] || [[ "${1}" = '-h' ]] || [[ "${1}" = '--help' ]]; then
+  displayHelp
+  read -s -n 1 c
+  exit 0
+fi
+
 main "${1}" "${2}" "${3}" "${4}"
 
 # 正常終了したときに一時ファイルを削除する
