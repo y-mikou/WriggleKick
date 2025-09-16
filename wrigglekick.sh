@@ -1381,6 +1381,12 @@
       return 1
     fi
 
+    if [[ "${action}" = 'h' ]] && [[ ! "${option}" =~ [0-1] ]] ; then
+      echo "不可視設定は0か1で指定してください。"
+      read -s -n 1 c
+      return 1
+    fi
+
   }
 }
 
