@@ -259,7 +259,7 @@
 
     sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
 
-    bash "${0}" "${inputFile}" 't'
+    bash "${0}" "${inputFile}" 'ta'
     exit 0
   }
 }
