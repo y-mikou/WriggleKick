@@ -92,8 +92,8 @@
   declare -a nodeDepths
   declare -a nodeTitles
   declare -a nodeProgress
-  declare -a nodeSymbol
-  declare -a nodeHideFlag
+  declare -a nodeSymbols
+  declare -a nodeHideFlags
   declare -a nodeCharCount
 
   ##############################################################################
@@ -541,8 +541,8 @@
       'l')  echo '節   行番号   字数   済 アウトライン'
             echo '====+========+======+==+============'
             ;;
-      'a')  echo '節   行番号            深  字数   済 アウトライン'
-            echo '====+========+========+===+======+==+============'
+      'a')  echo '節   行番号            深  字数   済 視 アウトライン'
+            echo '====+========+========+===+======+==+==+============'
             ;;
       *)    ;;
     esac
@@ -555,11 +555,22 @@
 
         count="${nodeCharCount[$((cnt-1))]}"
         progress="${nodeProgress[$((cnt-1))]:=0}"
+        hideFlag="${nodeHideFlags[$((cnt-1))]:=0}"
+
+        if [[ "${hideFlag}" = '1' ]] && [[ ! "${char2}" = 'a' ]]; then
+          continue
+        fi
 
         if [[ ${progress} -eq 1 ]] ; then
           progress='☑️ '
         else
           progress='⬜️'
+        fi
+
+        if [[ "${hideFlag}" = '1' ]] ; then
+          hideFlag='🕶️ '
+        else
+          hideFlag='  '
         fi
 
         symbols="${nodeSymbols[$((cnt-1))]}"
@@ -571,7 +582,7 @@
                 ;;
           'l') printf " %8d %6d %s" "${startLine}" "${count}" "${progress}"
                 ;;
-          'a') printf " %8d~%8d %3d %6d %s" "${startLine}" "${endLine}" "${depth}" "${count}" "${progress}"
+          'a') printf " %8d~%8d %3d %6d %s %s" "${startLine}" "${endLine}" "${depth}" "${count}" "${progress}" "${hideFlag}"
                 ;;
           *)    ;;
         esac
@@ -1313,7 +1324,7 @@
     fi
 
     #動作指定のチェック
-    allowActionList=('h' 'e' 'd' 'gd' 'i' 'ie' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'c' 'gc' 's' 'o')
+    allowActionList=('h' 'e' 'd' 'gd' 'i' 'ie' 't' 'th' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'c' 'gc' 's' 'o')
     if ! arrayContains "${action}" "${allowActionList[@]}"; then
       echo '引数2:無効なアクションです'
       read -s -n 1 c
@@ -1321,7 +1332,7 @@
     fi
 
     unset allowActionList
-    allowActionList=('h' 'e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'c' 'gc' 's' 'o')
+    allowActionList=('e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'c' 'gc' 's' 'o')
     if arrayContains "${action}" "${allowActionList[@]}"; then
       if [[ ${indexNo} = '' ]] ; then
         echo "ノードを指定してください"
