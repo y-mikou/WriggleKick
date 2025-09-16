@@ -135,8 +135,7 @@ $ bash wrigglekick.sh ./tgt.txt t
 $ bash wrigglekick.sh ./tgt.txt e 2
 ```
 
-![Image](https://github.com/user-attachments/assets/f14fc682-b791-4f64-93d2-f146191d1080)
-
+![Image]([https://github.com/user-attachments/assets/f14fc682-b791-4f64-93d2-f146191d1080](https://github.com/user-attachments/assets/f6e8d5f3-9000-4f71-a160-12173766c862))
 ---
 
 # 機能について補足
