@@ -29,6 +29,8 @@
     echo '　　　　　gv....対象ノードの配下ノードを横断的に閲覧'
     echo '　　　　　e.....対象ノードの編集'
     echo '　　　　　d.....対象ノードの削除'
+    echo '　　　　　gd....対象ノードの削除'
+    echo '　　　　　h.....対象ノードに不可視属性を設定/解除'
     echo '　　　　　i.....対象ノードの下に新規ノード挿入。追加引数としてノード名'
     echo '　　　　　ie....対象ノードの下に新規ノード挿入、即編集モードへ。追加引数としてノード名'
     echo '　　　　　mu....対象ノードひとつを上へ移動'
@@ -91,6 +93,7 @@
   declare -a nodeTitles
   declare -a nodeProgress
   declare -a nodeSymbol
+  declare -a nodeHideFlag
   declare -a nodeCharCount
 
   ##############################################################################
@@ -108,6 +111,7 @@
     local title
     local progress
     local symbol
+    local hideFlag
     local depth
     local nextEntry
     local nextStartLine
@@ -124,6 +128,7 @@
     nodeTitles=()
     nodeProgress=()
     nodeSymbols=()
+    nodeHideFlags=()
     nodeCharCount=()
 
     for i in $(seq 1 ${maxNodeCnt}); do
@@ -146,12 +151,16 @@
       title="$(extractField "${content}" 2)"
       symbol="$(extractField "${content}" 4)"
       symbol="${symbol:0:1}" #1文字のみ
-      
+
+      hideFlag="$(extractField "${content}" 5)"
+      hideFlag="${hideFlag:0:1}" #1文字のみ
+
       nodeStartLines+=("${startLine}")
       nodeEndLines+=("${endLine}")
       nodeDepths+=("${depth}")
       nodeTitles+=("${title}")
-      nodeSymbol+=("${symbol:=　}") #設定されていない場合には空白を一時的に設定
+      nodeSymbols+=("${symbol:= }") #設定されていない場合には空白を一時的に設定
+      nodeHideFlags+=("${hideFlag:=0}") #設定されていない場合には0を一時的に設定
 
       progress="$(extractField "${content}" 3)"
       nodeProgress+=("${progress:=0}")
@@ -200,7 +209,6 @@
     local presentTitlelineContent="$( getNodeTitlelineContent ${indexNo} )"
 
     local part_before="$(extractField "${presentTitlelineContent}" 1)$(printf '\t')$(extractField "${presentTitlelineContent}" 2)"
-    # local part_progress="$(extractField "${presentTitlelineContent}" 3)"
     local part_after="$(extractField "${presentTitlelineContent}" 4)"
 
     modifiedTitlelineContent="$( echo -e "${part_before}\t${modifiyProgress}\t${part_after}" )"
@@ -224,8 +232,30 @@
 
     local part_before="$( seq ${nodeDepths[$((indexNo-1))]} | while read -r line; do printf '.'; done )"
     part_before="${part_before}\t${nodeTitles[$((indexNo-1))]}\t${nodeProgress[$((indexNo-1))]}"
+    local part_after="${nodeHideFlag[$((indexNo-1))]}"
 
-    local modifiedTitlelineContent="$( echo -e "${part_before}\t${modifySymbol}" )"
+    local modifiedTitlelineContent="$( echo -e "${part_before}\t${modifySymbol}\t${part_after}" )"
+
+    sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
+
+    bash "${0}" "${inputFile}" 't'
+    exit 0
+  }
+
+  ##############################################################################
+  # 選択ノードに不可視フラグ(1:不可視/0:可視)を設定。指定シンボルを空にした場合は0(可視)
+  # 引数:なし(グローバルのみ)
+  # 引数2:フラグ(1/0)
+  ##############################################################################
+  function setHideFlag {
+
+    local modifyFlag="${option:0:1}" #先頭1文字のみ
+    local targetLineNo="${nodeStartLines[$((${indexNo}-1))]}"
+
+    local part_before="$( seq ${nodeDepths[$((indexNo-1))]} | while read -r line; do printf '.'; done )"
+    part_before="${part_before}\t${nodeTitles[$((indexNo-1))]}\t${nodeProgress[$((indexNo-1))]}\t${nodeSymbols[$((indexNo-1))]}"
+
+    local modifiedTitlelineContent="$( echo -e "${part_before}\t${modifyFlag}" )"
 
     sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
 
@@ -532,7 +562,7 @@
           progress='⬜️'
         fi
 
-        symbols="${nodeSymbol[$((cnt-1))]}"
+        symbols="${nodeSymbols[$((cnt-1))]}"
 
         printf "%4d" "${cnt}"
 
@@ -706,7 +736,6 @@
       cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileFooter}" > "${inputFile}"
     fi
   }
-
 
   ##############################################################################
   # 対象のノードの下に新しいノードを挿入する
@@ -1292,7 +1321,7 @@
     fi
 
     unset allowActionList
-    allowActionList=('e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'c' 'gc' 's' 'o')
+    allowActionList=('h' 'e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'c' 'gc' 's' 'o')
     if arrayContains "${action}" "${allowActionList[@]}"; then
       if [[ ${indexNo} = '' ]] ; then
         echo "ノードを指定してください"
@@ -1418,7 +1447,7 @@
             switchProgress
             ;;
       'h')  clear
-            displayHelp
+            setHideFlag
             ;;
       't')  clear
             displayTree
