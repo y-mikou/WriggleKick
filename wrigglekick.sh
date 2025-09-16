@@ -1,42 +1,13 @@
 #!/bin/bash
 
-#エディタ、ビューワーの指定
-selected_editor='selected_editor'
-                #^^^^^^^^^^^^^^^ここにお好みのエディター呼び出しコマンドを設定してください
-selected_viewer='selected_viewer'
-                #^^^^^^^^^^^^^^^ここにお好みのビューワー呼び出しコマンドを設定してください
-
-: "外部プロセス最適化ユーティリティ" && {
+: "ユーザー設定領域" && {
   ##############################################################################
+  #エディタ、ビューワーの指定
   ##############################################################################
-  function extractField {
-    local input="${1}"
-    local fieldNum="${2}"
-    local IFS=$'\t'
-    local -a fields=($input)
-    echo "${fields[$((fieldNum-1))]}"
-  }
-
-  ##############################################################################
-  ##############################################################################
-  function arrayContains {
-    local target="${1}"
-    shift
-    local element
-    for element in "$@"; do
-      [[ "${element}" == "${target}" ]] && return 0
-    done
-    return 1
-  }
-
-  ##############################################################################
-  ##############################################################################
-  function countNonDotChars {
-    local input="${1}"
-    local cleaned="${input//[^$'\t']*$'\t'/}"
-    cleaned="${cleaned//$'\n'/}"
-    echo "${#cleaned}"
-  }
+  selected_editor='selected_editor'
+                  #^^^^^^^^^^^^^^^ここにお好みのエディター呼び出しコマンドを設定してください
+  selected_viewer='selected_viewer'
+                  #^^^^^^^^^^^^^^^ここにお好みのビューワー呼び出しコマンドを設定してください
 }
 
 : "ヘルプ表示" && {
@@ -77,6 +48,36 @@ selected_viewer='selected_viewer'
     echo '　　　　　数字...対象ノードを編集(eと引数3を省略)'
     echo '　引数3:動作対象ノード番号'
     echo '　引数4:動作指定ごとに必要なオプション'
+  }
+}
+
+: "外部プロセス最適化ユーティリティ" && {
+  ##############################################################################
+  # 外部プロセス呼び出しを高速化するための前処理群 
+  ##############################################################################
+  function extractField {
+    local input="${1}"
+    local fieldNum="${2}"
+    local IFS=$'\t'
+    local -a fields=($input)
+    echo "${fields[$((fieldNum-1))]}"
+  }
+
+  function arrayContains {
+    local target="${1}"
+    shift
+    local element
+    for element in "$@"; do
+      [[ "${element}" == "${target}" ]] && return 0
+    done
+    return 1
+  }
+
+  function countNonDotChars {
+    local input="${1}"
+    local cleaned="${input//[^$'\t']*$'\t'/}"
+    cleaned="${cleaned//$'\n'/}"
+    echo "${#cleaned}"
   }
 }
 
