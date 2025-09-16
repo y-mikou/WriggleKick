@@ -44,7 +44,7 @@ selected_viewer='selected_viewer'
   # 引数:なし
   ##############################################################################
   function displayHelp {
-    echo '■Simple Outliner'
+    echo '■Simple Outliner[Wriggle Kick]'
     echo '>help'
     echo '　引数1:対象File'
     echo '　引数2:動作指定'
