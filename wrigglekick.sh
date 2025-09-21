@@ -535,8 +535,8 @@
       *)    echo '';;
     esac
     case "${char2}" in
-      '') echo '節   アウトライン'
-          echo '====+============'
+      '') echo '節   済 アウトライン'
+          echo '====+==+============'
           ;;
       'l')  echo '節   行番号   字数   済 アウトライン'
             echo '====+========+======+==+============'
@@ -578,7 +578,7 @@
         printf "%4d" "${cnt}"
 
         case "${char2}" in
-          '')  :
+          '')  printf " %s" "${progress}"
                 ;;
           'l') printf " %8d %6d %s" "${startLine}" "${count}" "${progress}"
                 ;;
