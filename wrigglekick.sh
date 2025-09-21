@@ -43,7 +43,7 @@
     echo '　　　　　gmr...自分の配下ノードを引き連れて右へ移動(深くする)'
     echo '　　　　　j.....指定ノードを、下のノードと結合'
     echo '　　　　　gj....自分の配下ノードを、自分に統合'
-    echo '　　　　　c.....指定ノードの済/未マークを切り替える'
+    echo '　　　　　k.....指定ノードの済/未マークを切り替える'
     echo '　　　　　gc....自分の配下ノードを含んだ文字数を通知する'
     echo '　　　　　s.....指定ノードに表示シンボルを設定する。追加引数でシンボルを指定(1文字)'
     echo '　　　　　o.....自分の配下ノードを含んだ範囲を別ファイル出力する。追加引数で出力ファイル名'
@@ -535,8 +535,8 @@
       *)    echo '';;
     esac
     case "${char2}" in
-      '') echo '節   アウトライン'
-          echo '====+============'
+      '') echo '節   済 アウトライン'
+          echo '====+==+============'
           ;;
       'l')  echo '節   行番号   字数   済 アウトライン'
             echo '====+========+======+==+============'
@@ -578,7 +578,7 @@
         printf "%4d" "${cnt}"
 
         case "${char2}" in
-          '')  :
+          '')  printf " %s" "${progress}"
                 ;;
           'l') printf " %8d %6d %s" "${startLine}" "${count}" "${progress}"
                 ;;
@@ -1324,7 +1324,7 @@
     fi
 
     #動作指定のチェック
-    allowActionList=('h' 'e' 'd' 'gd' 'i' 'ie' 't' 'th' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'c' 'gc' 's' 'o')
+    allowActionList=('h' 'e' 'd' 'gd' 'i' 'ie' 't' 'th' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'k' 'gc' 's' 'o')
     if ! arrayContains "${action}" "${allowActionList[@]}"; then
       echo '引数2:無効なアクションです'
       read -s -n 1 c
@@ -1332,7 +1332,7 @@
     fi
 
     unset allowActionList
-    allowActionList=('e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'c' 'gc' 's' 'o')
+    allowActionList=('e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'k' 'gc' 's' 'o')
     if arrayContains "${action}" "${allowActionList[@]}"; then
       if [[ ${indexNo} = '' ]] ; then
         echo "ノードを指定してください"
@@ -1460,7 +1460,7 @@
       'j')  clear
             joinNode
             ;;
-      'c')  clear
+      'k')  clear
             switchProgress
             ;;
       'h')  clear
