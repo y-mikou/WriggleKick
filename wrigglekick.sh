@@ -1316,13 +1316,6 @@
     
     local depth=$(getDepth ${indexNo})
 
-    #対象ファイルの存在チェック
-    if [[ ! -f ${inputFile} ]] ; then
-      echo "${inputFile} なんてファイルないです"
-      read -s -n 1 c
-      exit 100
-    fi
-
     #動作指定のチェック
     allowActionList=('h' 'e' 'd' 'gd' 'i' 'ie' 't' 'th' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'k' 'gc' 's' 'o')
     if ! arrayContains "${action}" "${allowActionList[@]}"; then
@@ -1435,6 +1428,13 @@
     action="${2}"
     indexNo="${3}"
     option="${4}"
+
+    #対象ファイルの存在チェック
+    if [[ ! -f ${inputFile} ]] ; then
+      echo "${inputFile} なんてファイルないです"
+      read -s -n 1 c
+      exit 100
+    fi
 
     # 初期処理
     myInit
