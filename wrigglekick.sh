@@ -493,7 +493,9 @@
   # 先頭から末尾を指定してツリービューを呼び出すラッパー
   ##############################################################################
   function displayTree {
-    tree 1 "${maxNodeCnt}" "${allCharCount}"
+    local indexNoToOption="${indexNo}"
+    local indexNo=''
+    tree 1 "${maxNodeCnt}" "${indexNoToOption}" "${allCharCount}"
   }
 
   ##############################################################################
@@ -510,7 +512,7 @@
     local endNodeSelectGroup="$( echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 2 )"
     local focusCount="$( groupCharCount $( getLineNo ${startNodeSelectGroup} 1 ) $( getLineNo ${endNodeSelectGroup} 9 ) )"
     
-    tree "${startNodeSelectGroup}" "${endNodeSelectGroup}" "${focusCount}"
+    tree "${startNodeSelectGroup}" "${endNodeSelectGroup}" "${option}" "${focusCount}"
 
   }
 
@@ -519,13 +521,13 @@
   # t:通常ツリー
   # tl:開始行番号付きツリー表示
   # ta:開始終了行番号深さ付きツリー表示
-  # 引数1: 開始グループ番号
-  # 引数2: 終了グループ番号
+  # 引数1: hiddenフラグの有効無効(h:有効/他:無効)
   ##############################################################################
   function tree {
     local startNodeSelectGroup="${1}"
     local endNodeSelectGroup="${2}"
-    local allCharCount="${3}"
+    local hiddenOption="${3}"
+    local allCharCount="${4}"
 
     printf "【$(basename ${inputFile})】合計${allCharCount}文字"
     
@@ -557,7 +559,7 @@
         progress="${nodeProgress[$((cnt-1))]:=0}"
         hideFlag="${nodeHideFlags[$((cnt-1))]:=0}"
 
-        if [[ "${hideFlag}" = '1' ]] && [[ ! "${char2}" = 'a' ]]; then
+        if [[ "${hideFlag}" = '1' ]] && [[ "${hiddenOption}" = 'h' ]]; then
           continue
         fi
 
