@@ -1209,7 +1209,11 @@
     #指定ファイルがノード情報を持っていなかった場合、追加する。
     if [[ ${maxNodeCnt} -eq 0 ]] ; then
       echo 'ノードがありません。先頭に第一ノードを追加します' 
-      sed -i -e '1s|^|.\t1st Node\n|g' "${inputFile}"
+      if [ ! -s "${inputFile}" ] ; then
+        echo -e ".\t1st Node\n" > "${inputFile}"
+      else
+        sed -i "1i.\t1st Node" "${inputFile}"
+      fi
       read -s -n 1 c
       bash "${0}" "${inputFile}" 't'
       exit 0
@@ -1433,9 +1437,16 @@
 
     #対象ファイルの存在チェック
     if [[ ! -f ${inputFile} ]] ; then
-      echo "${inputFile} なんてファイルないです"
-      read -s -n 1 c
-      exit 100
+      echo "${inputFile} というファイルは存在しません。"
+      read -p "${inputFile} を作成しますか？(y/n) :" YN
+      if [ "${YN}" = "y" ]; then
+        touch "${inputFile}"
+        bash "${0}" "${inputFile}" 't'
+        exit 0
+      else
+        echo "終了します"
+        exit 1;
+      fi
     fi
 
     # 初期処理
