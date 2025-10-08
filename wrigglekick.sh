@@ -208,7 +208,7 @@
     local targetLineNo="${nodeStartLines[$((indexNo-1))]}"
     local presentTitlelineContent="$( getNodeTitlelineContent ${indexNo} )"
 
-    local part_before="$(extractField "${presentTitlelineContent}" 1)$(printf '\|')$(extractField "${presentTitlelineContent}" 2)"
+    local part_before="$(extractField "${presentTitlelineContent}" 1)$(printf '|')$(extractField "${presentTitlelineContent}" 2)"
     local part_after="$(extractField "${presentTitlelineContent}" 4)"
 
     modifiedTitlelineContent="$( echo -e "${part_before}\|${modifiyProgress}\|${part_after}" )"
@@ -1184,13 +1184,13 @@
   
     #3つ以上作る気がない
     #echo 'バックアップ作成'
-    if [[ -f "#/$(basename ${orgFile})_bk_2" ]] ; then 
-      cp -f "#/$(basename ${orgFile})_bk_2" "#/$(basename ${orgFile})_bk_3"
+    if [[ -f "./$(basename ${orgFile})_bk_2" ]] ; then 
+      cp -f "./$(basename ${orgFile})_bk_2" "./$(basename ${orgFile})_bk_3"
     fi
-    if [[ -f "#/$(basename ${orgFile})_bk_1" ]] ; then 
-      cp -f "#/$(basename ${orgFile})_bk_1" "#/$(basename ${orgFile})_bk_2"
+    if [[ -f "./$(basename ${orgFile})_bk_1" ]] ; then 
+      cp -f "./$(basename ${orgFile})_bk_1" "./$(basename ${orgFile})_bk_2"
     fi
-    cp -f "#/$(basename ${orgFile})" "#/$(basename ${orgFile})_bk_1"
+    cp -f "./$(basename ${orgFile})" "./$(basename ${orgFile})_bk_1"
   }
 }
 
