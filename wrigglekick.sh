@@ -1,30 +1,36 @@
 #!/bin/bash
 
-#エディタ、ビューワーの指定
-selected_editor='selected_editor'
-                #^^^^^^^^^^^^^^^ここにお好みのエディター呼び出しコマンドを設定してください
-selected_viewer='selected_viewer'
-                #^^^^^^^^^^^^^^^ここにお好みのビューワー呼び出しコマンドを設定してください
+: "ユーザー設定領域" && {
+  ##############################################################################
+  #エディタ、ビューワーの指定
+  ##############################################################################
+  selected_editor='selected_editor'
+                  #^^^^^^^^^^^^^^^ここにお好みのエディター呼び出しコマンドを設定してください
+  selected_viewer='selected_viewer'
+                  #^^^^^^^^^^^^^^^ここにお好みのビューワー呼び出しコマンドを設定してください
+}
 
 : "ヘルプ表示" && {
   ##############################################################################
   # 引数:なし
   ##############################################################################
   function displayHelp {
-    echo '■Simple Outliner'
+    echo '■Simple Outliner[Wriggle Kick]'
     echo '>help'
     echo '　引数1:対象File'
     echo '　引数2:動作指定'
-    echo '　　　　　t.....ツリービュー(省略可)'
-    echo '　　　　　tl....行番号付きツリービュー'
-    echo '　　　　　tla...行番号範囲深さ付きツリービュー'
-    echo '　　　　　f.....フォーカスビュー'
-    echo '　　　　　fl....行番号付きフォーカスビュー'
-    echo '　　　　　fla...行番号範囲深さ付きフォーカスビュー'
+    echo '　　　　　t.....ツリービュー(省略可)　hオプション:不可視フラグonのノードを非表示'
+    echo '　　　　　tl....行番号付きツリービュー　hオプション:不可視フラグonのノードを非表示'
+    echo '　　　　　ta...行番号範囲深さ付きツリービュー　hオプション:不可視フラグonのノードを非表示'
+    echo '　　　　　f.....フォーカスビュー　hオプション:不可視フラグonのノードを非表示'
+    echo '　　　　　fl....行番号付きフォーカスビュー　hオプション:不可視フラグonのノードを非表示'
+    echo '　　　　　fa...行番号範囲深さ付きフォーカスビュー　hオプション:不可視フラグonのノードを非表示'
     echo '　　　　　v.....対象ノードの閲覧'
     echo '　　　　　gv....対象ノードの配下ノードを横断的に閲覧'
     echo '　　　　　e.....対象ノードの編集'
     echo '　　　　　d.....対象ノードの削除'
+    echo '　　　　　gd....対象ノードの削除'
+    echo '　　　　　h.....対象ノードに不可視フラグを設定(1:不可視/0:可視)'
     echo '　　　　　i.....対象ノードの下に新規ノード挿入。追加引数としてノード名'
     echo '　　　　　ie....対象ノードの下に新規ノード挿入、即編集モードへ。追加引数としてノード名'
     echo '　　　　　mu....対象ノードひとつを上へ移動'
@@ -37,13 +43,36 @@ selected_viewer='selected_viewer'
     echo '　　　　　gmr...自分の配下ノードを引き連れて右へ移動(深くする)'
     echo '　　　　　j.....指定ノードを、下のノードと結合'
     echo '　　　　　gj....自分の配下ノードを、自分に統合'
-    echo '　　　　　c.....指定ノードの済/未マークを切り替える'
+    echo '　　　　　k.....指定ノードの済/未マークを切り替える'
     echo '　　　　　gc....自分の配下ノードを含んだ文字数を通知する'
     echo '　　　　　s.....指定ノードに表示シンボルを設定する。追加引数でシンボルを指定(1文字)'
     echo '　　　　　o.....自分の配下ノードを含んだ範囲を別ファイル出力する。追加引数で出力ファイル名'
     echo '　　　　　数字...対象ノードを編集(eと引数3を省略)'
-    echo '　引数3:動作対象ノード番号'
+    echo '　引数3:動作対象ノード番号/ノード指定の無い動作ではオプション'
     echo '　引数4:動作指定ごとに必要なオプション'
+  }
+}
+
+: "外部プロセス最適化ユーティリティ" && {
+  ##############################################################################
+  # 外部プロセス呼び出しを高速化するための前処理群 
+  ##############################################################################
+  function extractField {
+    local input="${1}"
+    local fieldNum="${2}"
+    local IFS=$'|'
+    local -a fields=($input)
+    echo "${fields[$((fieldNum-1))]}"
+  }
+
+  function arrayContains {
+    local target="${1}"
+    shift
+    local element
+    for element in "$@"; do
+      [[ "${element}" == "${target}" ]] && return 0
+    done
+    return 1
   }
 }
 
@@ -56,7 +85,8 @@ selected_viewer='selected_viewer'
   declare -a nodeDepths
   declare -a nodeTitles
   declare -a nodeProgress
-  declare -a nodeSymbol
+  declare -a nodeSymbols
+  declare -a nodeHideFlags
   declare -a nodeCharCount
 
   ##############################################################################
@@ -74,14 +104,16 @@ selected_viewer='selected_viewer'
     local title
     local progress
     local symbol
+    local hideFlag
     local depth
     local nextEntry
     local nextStartLine
 
-    readarray -t indexlist < <(grep -nP '^\.+\t.+' ${inputFile})
+    readarray -t indexlist < <(grep -nP '^#+\|.+' ${inputFile})
+    readarray -t fileLines < "${inputFile}"
 
     maxNodeCnt="${#indexlist[@]}"
-    maxLineCnt="$( cat "${inputFile}" | wc -l  )"
+    maxLineCnt="${#fileLines[@]}"
 
     nodeStartLines=()
     nodeEndLines=()
@@ -89,6 +121,7 @@ selected_viewer='selected_viewer'
     nodeTitles=()
     nodeProgress=()
     nodeSymbols=()
+    nodeHideFlags=()
     nodeCharCount=()
 
     for i in $(seq 1 ${maxNodeCnt}); do
@@ -105,37 +138,42 @@ selected_viewer='selected_viewer'
       fi
       
       depth="${content}"
-      depth="${depth%%[^.]*}"
+      depth="${depth%%[^#]*}"
       depth="${#depth}"
       
-      title="$( echo "${content}" | cut -f 2 )"
-      symbol="$( echo "${content}" | cut -f 4 )"
+      title="$(extractField "${content}" 2)"
+      symbol="$(extractField "${content}" 4)"
       symbol="${symbol:0:1}" #1文字のみ
-      
+
+      hideFlag="$(extractField "${content}" 5)"
+      hideFlag="${hideFlag:0:1}" #1文字のみ
+
       nodeStartLines+=("${startLine}")
       nodeEndLines+=("${endLine}")
       nodeDepths+=("${depth}")
       nodeTitles+=("${title}")
-      nodeSymbol+=("${symbol:=　}") #設定されていない場合には空白を一時的に設定
+      nodeSymbols+=("${symbol:= }") #設定されていない場合には空白を一時的に設定
+      nodeHideFlags+=("${hideFlag:=0}") #設定されていない場合には0を一時的に設定
 
-      progress="$( echo "${content}" | cut -f 3 )"
+      progress="$(extractField "${content}" 3)"
       nodeProgress+=("${progress:=0}")
 
       #taかtlの場合以外はスキップする
 
       local countActionList=('tl' 'ta' 'fl' 'fa')
-      printf '%s\n' "${countActionList[@]}" | grep -qx "${action}"
-      if [[ ${?} -eq 0 ]] ; then
+      if arrayContains "${action}" "${countActionList[@]}"; then
         #次の行がすぐに次のノードタイトル行(純粋なタイトル行)の場合は0文字
         if [[ ${startLine} -eq ${endLine} ]] ; then
           charCount=0
         else
-          charCount="$( \
-            sed -n "${startLine},${endLine}p" "${inputFile}" \
-          | sed -E "s/^\..*//g" \
-          | sed -z "s/\n//g" \
-          | wc -m \
-          )"
+          local contentLines=""
+          for ((lineNum=startLine; lineNum<=endLine; lineNum++)); do
+            local line="${fileLines[$((lineNum-1))]}"
+            if [[ ! "${line}" =~ ^# ]]; then
+              contentLines+="${line}"
+            fi
+          done
+          charCount="${#contentLines}"
         fi
         nodeCharCount+=("${charCount}")
       fi
@@ -163,11 +201,10 @@ selected_viewer='selected_viewer'
     local targetLineNo="${nodeStartLines[$((indexNo-1))]}"
     local presentTitlelineContent="$( getNodeTitlelineContent ${indexNo} )"
 
-    local part_before=$( echo "${presentTitlelineContent}" | cut -f 1-2 )
-    # local part_progress=$( echo "${presentTitlelineContent}" | cut -f 3 )
-    local part_after=$( echo "${presentTitlelineContent}" | cut -f 4- )
+    local part_before="$(extractField "${presentTitlelineContent}" 1)$(printf '|')$(extractField "${presentTitlelineContent}" 2)"
+    local part_after="$(extractField "${presentTitlelineContent}" 4)"
 
-    modifiedTitlelineContent="$( echo -e "${part_before}\t${modifiyProgress}\t${part_after}" )"
+    modifiedTitlelineContent="$( echo -e "${part_before}\|${modifiyProgress}\|${part_after}" )"
 
     sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
 
@@ -186,14 +223,36 @@ selected_viewer='selected_viewer'
 
     local targetLineNo="${nodeStartLines[$((${indexNo}-1))]}"
 
-    local part_before="$( seq ${nodeDepths[$((indexNo-1))]} | while read -r line; do printf '.'; done )"
-    part_before="${part_before}\t${nodeTitles[$((indexNo-1))]}\t${nodeProgress[$((indexNo-1))]}"
+    local part_before="$( seq ${nodeDepths[$((indexNo-1))]} | while read -r line; do printf '#'; done )"
+    part_before="${part_before}\|${nodeTitles[$((indexNo-1))]}\|${nodeProgress[$((indexNo-1))]}"
+    local part_after="${nodeHideFlag[$((indexNo-1))]}"
 
-    local modifiedTitlelineContent="$( echo -e "${part_before}\t${modifySymbol}" )"
+    local modifiedTitlelineContent="$( echo -e "${part_before}\|${modifySymbol}\|${part_after}" )"
 
     sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
 
     bash "${0}" "${inputFile}" 't'
+    exit 0
+  }
+
+  ##############################################################################
+  # 選択ノードに不可視フラグ(1:不可視/0:可視)を設定。指定シンボルを空にした場合は0(可視)
+  # 引数:なし(グローバルのみ)
+  # 引数2:フラグ(1/0)
+  ##############################################################################
+  function setHideFlag {
+
+    local modifyFlag="${option:0:1}" #先頭1文字のみ
+    local targetLineNo="${nodeStartLines[$((${indexNo}-1))]}"
+
+    local part_before="$( seq ${nodeDepths[$((indexNo-1))]} | while read -r line; do printf '#'; done )"
+    part_before="${part_before}\|${nodeTitles[$((indexNo-1))]}\|${nodeProgress[$((indexNo-1))]}\|${nodeSymbols[$((indexNo-1))]}"
+
+    local modifiedTitlelineContent="$( echo -e "${part_before}\|${modifyFlag}" )"
+
+    sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
+
+    bash "${0}" "${inputFile}" 'ta'
     exit 0
   }
 }
@@ -262,7 +321,7 @@ selected_viewer='selected_viewer'
   ##############################################################################
   function getNodeTitlelineContent {
     local selectNodeLineNo="${nodeStartLines[ $(( ${1}-1 )) ]}"
-    sed -n ${selectNodeLineNo}p "${inputFile}"
+    echo "${fileLines[$((selectNodeLineNo-1))]}"
   }
 }
 
@@ -388,11 +447,15 @@ selected_viewer='selected_viewer'
 
     local lineStart="${1}"
     local lineEnd="${2}"
-
-      sed -n "${lineStart},${lineEnd}p" "${inputFile}" \
-    | sed -E "s/^\..*//g" \
-    | sed -z "s/\n//g" \
-    | wc -m \
+    
+    local contentLines=""
+    for ((lineNum=lineStart; lineNum<=lineEnd; lineNum++)); do
+      local line="${fileLines[$((lineNum-1))]}"
+      if [[ ! "${line}" =~ ^#.+ ]] ; then
+        contentLines+="${line}"
+      fi
+    done
+    echo "${#contentLines}"
 
   }
   
@@ -423,7 +486,9 @@ selected_viewer='selected_viewer'
   # 先頭から末尾を指定してツリービューを呼び出すラッパー
   ##############################################################################
   function displayTree {
-    tree 1 "${maxNodeCnt}" "${allCharCount}"
+    local indexNoToOption="${indexNo}"
+    local indexNo=''
+    tree 1 "${maxNodeCnt}" "${indexNoToOption}" "${allCharCount}"
   }
 
   ##############################################################################
@@ -440,7 +505,7 @@ selected_viewer='selected_viewer'
     local endNodeSelectGroup="$( echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 2 )"
     local focusCount="$( groupCharCount $( getLineNo ${startNodeSelectGroup} 1 ) $( getLineNo ${endNodeSelectGroup} 9 ) )"
     
-    tree "${startNodeSelectGroup}" "${endNodeSelectGroup}" "${focusCount}"
+    tree "${startNodeSelectGroup}" "${endNodeSelectGroup}" "${option}" "${focusCount}"
 
   }
 
@@ -449,13 +514,13 @@ selected_viewer='selected_viewer'
   # t:通常ツリー
   # tl:開始行番号付きツリー表示
   # ta:開始終了行番号深さ付きツリー表示
-  # 引数1: 開始グループ番号
-  # 引数2: 終了グループ番号
+  # 引数1: hiddenフラグの有効無効(h:有効/他:無効)
   ##############################################################################
   function tree {
     local startNodeSelectGroup="${1}"
     local endNodeSelectGroup="${2}"
-    local allCharCount="${3}"
+    local hiddenOption="${3}"
+    local allCharCount="${4}"
 
     printf "【$(basename ${inputFile})】合計${allCharCount}文字"
     
@@ -465,14 +530,14 @@ selected_viewer='selected_viewer'
       *)    echo '';;
     esac
     case "${char2}" in
-      '') echo '節   アウトライン'
-          echo '====+============'
+      '') echo '節   済 アウトライン'
+          echo '====+==+============'
           ;;
       'l')  echo '節   行番号   字数   済 アウトライン'
             echo '====+========+======+==+============'
             ;;
-      'a')  echo '節   行番号            深  字数   済 アウトライン'
-            echo '====+========+========+===+======+==+============'
+      'a')  echo '節   行番号            深  字数   済 視 アウトライン'
+            echo '====+========+========+===+======+==+==+============'
             ;;
       *)    ;;
     esac
@@ -485,6 +550,11 @@ selected_viewer='selected_viewer'
 
         count="${nodeCharCount[$((cnt-1))]}"
         progress="${nodeProgress[$((cnt-1))]:=0}"
+        hideFlag="${nodeHideFlags[$((cnt-1))]:=0}"
+
+        if [[ "${hideFlag}" = '1' ]] && [[ "${hiddenOption}" = 'h' ]]; then
+          continue
+        fi
 
         if [[ ${progress} -eq 1 ]] ; then
           progress='☑️ '
@@ -492,16 +562,22 @@ selected_viewer='selected_viewer'
           progress='⬜️'
         fi
 
-        symbols="${nodeSymbol[$((cnt-1))]}"
+        if [[ "${hideFlag}" = '1' ]] ; then
+          hideFlag='🕶️ '
+        else
+          hideFlag='  '
+        fi
 
-        printf "%04d" "${cnt}"
+        symbols="${nodeSymbols[$((cnt-1))]}"
+
+        printf "%4d" "${cnt}"
 
         case "${char2}" in
-          '')  :
+          '')  printf " %s" "${progress}"
                 ;;
-          'l') printf " %08d %06d %s" "${startLine}" "${count}" "${progress}"
+          'l') printf " %8d %6d %s" "${startLine}" "${count}" "${progress}"
                 ;;
-          'a') printf " %08d~%08d %03d %06d %s" "${startLine}" "${endLine}" "${depth}" "${count}" "${progress}"
+          'a') printf " %8d~%8d %3d %6d %s %s" "${startLine}" "${endLine}" "${depth}" "${count}" "${progress}" "${hideFlag}"
                 ;;
           *)    ;;
         esac
@@ -569,7 +645,10 @@ selected_viewer='selected_viewer'
     local startLineSelectGroup="$( getLineNo $( echo ${selectGroupFromTo} | cut -d ' ' -f 1 ) 1 )"
     local endLineSelectGroup="$( getLineNo $( echo ${selectGroupFromTo} | cut -d ' ' -f 2 ) 9 )"
 
-    sed -n "${startLineSelectGroup},${endLineSelectGroup}p" "${inputFile}" > "${outputFile}"
+      cat "${inputFile}" \
+    | sed -n "${startLineSelectGroup},${endLineSelectGroup}p" \
+    | sed '/^\/\//d' \
+    > "${outputFile}"
     
     echo "ノード範囲を出力しました: ${outputFile}"
     exit 0
@@ -585,8 +664,9 @@ selected_viewer='selected_viewer'
   function singleNodeOperations {
 
     selectNodeLineFromTo="$( getLineNo ${indexNo} '' )"
-    startLineSelectNode="$( echo ${selectNodeLineFromTo} | cut -d ' ' -f 1 )"
-    endLineSelectNode="$(   echo ${selectNodeLineFromTo} | cut -d ' ' -f 2 )"
+    local selectNodeArray=($selectNodeLineFromTo)
+    startLineSelectNode="${selectNodeArray[0]}"
+    endLineSelectNode="${selectNodeArray[1]}"
 
     endLineHeader="$(( ${startLineSelectNode} -1 ))"
     startLineFooter="$(( ${endLineSelectNode} +1 ))"
@@ -651,9 +731,9 @@ selected_viewer='selected_viewer'
     startLineNextNode="$(   getLineNo $(( ${indexNo} +1 )) 1 )"
 
     depth="$( getDepth ${indexNo} )"
-    dots="$(seq ${depth} | while read -r line; do printf '.'; done)"
+    dots="$(seq ${depth} | while read -r line; do printf '#'; done)"
 
-    echo -e "${dots}\t${nlString}" > "${tmpfileSelect}"
+    echo -e "${dots}\|${nlString}" > "${tmpfileSelect}"
     cat "${inputFile}" | { head -n "${endLinePreviousNode}" > "${tmpfileHeader}"; cat >/dev/null;}
 
     if [[ ${indexNo} -eq ${maxNodeCnt} ]] ;then
@@ -665,7 +745,6 @@ selected_viewer='selected_viewer'
       cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileFooter}" > "${inputFile}"
     fi
   }
-
 
   ##############################################################################
   # 対象のノードの下に新しいノードを挿入する
@@ -698,9 +777,9 @@ selected_viewer='selected_viewer'
     tgtLine="$(getLineNo ${indexNo} 1 )"
 
     case "${char2}" in
-      'l')  sed -i -e "$tgtLine s/^\.\./\./g" "${inputFile}"
+      'l')  sed -i -e "$tgtLine s/^##/#/g" "${inputFile}"
             ;;
-      'r')  sed -i -e "$tgtLine s/^/\./g" "${inputFile}"
+      'r')  sed -i -e "$tgtLine s/^/#/g" "${inputFile}"
             ;;
       *)    echo 'err'
             exit 9
@@ -729,8 +808,9 @@ selected_viewer='selected_viewer'
 
     local indexSelectNode="$(( ${indexNo} ))"
     local selectNodeLineFromTo="$( getLineNo ${indexSelectNode} '' )"
-    local startLineSelectNode="$( echo ${selectNodeLineFromTo} | cut -d ' ' -f 1 )"
-    local endLineSelectNode="$(   echo ${selectNodeLineFromTo} | cut -d ' ' -f 2 )"
+    local selectNodeArray=($selectNodeLineFromTo)
+    local startLineSelectNode="${selectNodeArray[0]}"
+    local endLineSelectNode="${selectNodeArray[1]}"
 
     case "${char2}" in
       'u')  indexTargetNode="$(( ${indexNo} -1 ))"
@@ -740,8 +820,9 @@ selected_viewer='selected_viewer'
             endLinePreviousNode="$(( $( getLineNo ${indexTargetNode} 1 ) - 1 ))"
 
             targetNodeLineFromTo="$( getLineNo ${indexTargetNode} '' )"
-            startLineTargetNode="$( echo ${targetNodeLineFromTo} | cut -d ' ' -f 1 )"
-            endLineTargetNode="$(   echo ${targetNodeLineFromTo} | cut -d ' ' -f 2 )"
+            local targetNodeArray=($targetNodeLineFromTo)
+            startLineTargetNode="${targetNodeArray[0]}"
+            endLineTargetNode="${targetNodeArray[1]}"
 
             if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
               startLineNextNode=''
@@ -775,12 +856,13 @@ selected_viewer='selected_viewer'
             endLinePreviousNode="$( getLineNo ${indexPreviousNode} 9 )"
 
             targetNodeLineFromTo="$( getLineNo ${indexTargetNode} '' )"
-            startLineTargetNode="$( echo ${targetNodeLineFromTo} | cut -d ' ' -f 1 )"
+            local targetNodeArray=($targetNodeLineFromTo)
+            startLineTargetNode="${targetNodeArray[0]}"
 
             if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
-              endLineTargetNode="$(cat "${inputFile}" | wc -l )"
+              endLineTargetNode="${#fileLines[@]}"
             else
-              endLineTargetNode="$( echo ${targetNodeLineFromTo} | cut -d ' ' -f 2 )"
+              endLineTargetNode="${targetNodeArray[1]}"
               startLineNextNode="$( getLineNo ${indexNextNode}   1 )"
             fi
             (
@@ -822,20 +904,21 @@ selected_viewer='selected_viewer'
   function slideGroup {
 
     local SelectGroupNodeFromTo="$( getNodeNoInGroup ${indexNo} '' )"
-    local startNodeSelectGroup="$( echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 1 )"
-    local endNodeSelectGroup="$(   echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 2 )"
+    local selectGroupArray=($SelectGroupNodeFromTo)
+    local startNodeSelectGroup="${selectGroupArray[0]}"
+    local endNodeSelectGroup="${selectGroupArray[1]}"
 
     case "${char3}" in
       'l')  for i in $(seq "${startNodeSelectGroup}" "${endNodeSelectGroup}") ;
             do
               tgtLine="$( getLineNo ${i} 1 )"
-              sed -i -e "${tgtLine} s/^\.\./\./g" "${inputFile}"
+              sed -i -e "${tgtLine} s/^##/#/g" "${inputFile}"
             done
             ;;
       'r')  for i in $(seq "${startNodeSelectGroup}" "${endNodeSelectGroup}") ;
             do
               tgtLine="$( getLineNo ${i} 1 )"
-              sed -i -e "${tgtLine} s/^\./\.\./g" "${inputFile}"
+              sed -i -e "${tgtLine} s/^#/##/g" "${inputFile}"
             done
             ;;
       *)    echo 'err'
@@ -871,8 +954,9 @@ selected_viewer='selected_viewer'
 
     : "選択グループ情報を取得" && {
       selectNodeLineFromTo="$( getNodeNoInGroup ${indexNo} '' )"
-      startLineSelectGroup="$(getLineNo $( echo $( echo ${selectNodeLineFromTo} | cut -d ' ' -f 1 ) | cut -d ' ' -f 1 ) 1 )"
-      endLineSelectGroup="$(  getLineNo $( echo $( echo ${selectNodeLineFromTo} | cut -d ' ' -f 2 ) | cut -d ' ' -f 1 ) 9 )"
+      local selectNodeArray=($selectNodeLineFromTo)
+      startLineSelectGroup="$(getLineNo ${selectNodeArray[0]} 1 )"
+      endLineSelectGroup="$(  getLineNo ${selectNodeArray[1]} 9 )"
 
     }
 
@@ -886,8 +970,9 @@ selected_viewer='selected_viewer'
         bash "${0}" "${inputFile}" 't'
         exit 0
       else
-        startLineTargetGroup="$(getLineNo $( echo $( echo ${targetNodeLineFromTo} | cut -d ' ' -f 1 ) | cut -d ' ' -f 1 ) 1 )"
-        endLineTargetGroup="$(  getLineNo $( echo $( echo ${targetNodeLineFromTo} | cut -d ' ' -f 2 ) | cut -d ' ' -f 1 ) 9 )"
+        local targetNodeArray=($targetNodeLineFromTo)
+        startLineTargetGroup="$(getLineNo ${targetNodeArray[0]} 1 )"
+        endLineTargetGroup="$(  getLineNo ${targetNodeArray[1]} 9 )"
       fi
     }
 
@@ -1072,7 +1157,7 @@ selected_viewer='selected_viewer'
     )
 
     local titleLine="$(cat ${tmpfileSelect} | head -n 1)"
-    local content="$(tail -n +2 ${tmpfileSelect} | sed -E 's/^\.+\t.+//g')"
+    local content="$(tail -n +2 ${tmpfileSelect} | sed -E 's/^#+\|.+//g')"
 
     echo -e "${titleLine}\n${content}" > "${tmpfileSelect}"
     sed -i -e '$a\' "${tmpfileSelect}" #編集の結果末尾に改行がない場合'
@@ -1120,18 +1205,24 @@ selected_viewer='selected_viewer'
     #指定ファイルがノード情報を持っていなかった場合、追加する。
     if [[ ${maxNodeCnt} -eq 0 ]] ; then
       echo 'ノードがありません。先頭に第一ノードを追加します' 
-      sed -i -e '1s|^|.\t1st Node\n|g' "${inputFile}"
+      if [ ! -s "${inputFile}" ] ; then
+        echo -e "#\|1st Node\n" > "${inputFile}"
+      else
+        sed -i "1i#\|1st Node" "${inputFile}"
+      fi
       read -s -n 1 c
       bash "${0}" "${inputFile}" 't'
       exit 0
     fi
 
     #全体文字数(ノードタイトル行と空行を除く)のカウント
-    allCharCount="$( \
-        sed -E "s/^\..*//g" "${inputFile}" \
-      | sed -z "s/\n//g" \
-      | wc -m \
-    )"
+    local allContentLines=""
+    for line in "${fileLines[@]}"; do
+      if [[ ! "${line}" =~ (^#.+|^//.+) ]]; then
+        allContentLines+="${line}"
+      fi
+    done
+    allCharCount="${#allContentLines}"
 
 
     #エディタの設定
@@ -1211,8 +1302,7 @@ selected_viewer='selected_viewer'
     #バックアップ作成
     ######################################
     makeBackupActionList=('e' 'd' 'i' 'ie' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'c' 's')
-    printf '%s\n' "${makeBackupActionList[@]}" | grep -qx "${action}"
-    if [[ ${?} -eq 0 ]] ; then
+    if arrayContains "${action}" "${makeBackupActionList[@]}"; then
       makeBackup
     fi
 
@@ -1229,26 +1319,23 @@ selected_viewer='selected_viewer'
     local depth=$(getDepth ${indexNo})
 
     #動作指定のチェック
-    allowActionList=('h' 'e' 'd' 'gd' 'i' 'ie' 't' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'c' 'gc' 's' 'o')
-    printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
-    if [[ ${?} -ne 0 ]] ; then
+    allowActionList=('h' 'e' 'd' 'gd' 'i' 'ie' 't' 'th' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'k' 'gc' 's' 'o')
+    if ! arrayContains "${action}" "${allowActionList[@]}"; then
       echo '引数2:無効なアクションです'
       read -s -n 1 c
       return 1
     fi
 
     unset allowActionList
-    allowActionList=('e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'c' 'gc' 's' 'o')
-    printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
-    if [[ ${?} -eq 0 ]] ; then
+    allowActionList=('e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'k' 'gc' 's' 'o')
+    if arrayContains "${action}" "${allowActionList[@]}"; then
       if [[ ${indexNo} = '' ]] ; then
         echo "ノードを指定してください"
         read -s -n 1 c
         return 1
       fi
     fi
-    printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
-    if [[ ${?} -eq 0 ]] ; then
+    if arrayContains "${action}" "${allowActionList[@]}"; then
       if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxNodeCnt} ]] ; then
         echo "${indexNo}番目のノードは存在しません"
         read -s -n 1 c
@@ -1259,8 +1346,7 @@ selected_viewer='selected_viewer'
     #動作指定とノード番号のチェック(ノード状態の取得が必要なチェックは後続で実施)
     unset allowActionList
     allowActionList=('ml' 'gml')
-    printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
-    if [[ ${?} -eq 0 ]] && [[ ${depth} -le 1 ]] ; then
+    if arrayContains "${action}" "${allowActionList[@]}" && [[ ${depth} -le 1 ]] ; then
       echo "ノード番号${indexNo}はこれ以上浅く(左に移動)できません"
       read -s -n 1 c
       return 1
@@ -1268,8 +1354,7 @@ selected_viewer='selected_viewer'
 
     unset allowActionList
     allowActionList=('mr' 'gmr')
-    printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
-    if [[ ${?} -eq 0 ]] && [[ ${depth} -ge 10 ]] ; then
+    if arrayContains "${action}" "${allowActionList[@]}" && [[ ${depth} -ge 10 ]] ; then
       echo "ノード番号${indexNo}の深さは${depth}です。これ以上深く(右に移動)できません"
       read -s -n 1 c
       return 1
@@ -1277,8 +1362,7 @@ selected_viewer='selected_viewer'
 
     unset allowActionList
     allowActionList=('mu' 'gmu')
-    printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
-    if [[ ${?} -eq 0 ]] && [[ ${indexNo} -eq 1 ]] ; then
+    if arrayContains "${action}" "${allowActionList[@]}" && [[ ${indexNo} -eq 1 ]] ; then
       echo '引数2:1番目のノードは上に移動できません'
       read -s -n 1 c
       return 1
@@ -1286,9 +1370,14 @@ selected_viewer='selected_viewer'
 
     unset allowActionList
     allowActionList=('md' 'gmd')
-    printf '%s\n' "${allowActionList[@]}" | grep -qx "${action}"
-    if [[ ${?} -eq 0 ]] && [[ ${indexNo} -ge ${maxNodeCnt} ]] ; then
+    if arrayContains "${action}" "${allowActionList[@]}" && [[ ${indexNo} -ge ${maxNodeCnt} ]] ; then
       echo "引数2:${indexNo}番目のノードは下に移動できません"
+      read -s -n 1 c
+      return 1
+    fi
+
+    if [[ "${action}" = 'h' ]] && [[ ! "${option}" =~ [0-1] ]] ; then
+      echo "不可視設定は0か1で指定してください。"
       read -s -n 1 c
       return 1
     fi
@@ -1344,9 +1433,16 @@ selected_viewer='selected_viewer'
 
     #対象ファイルの存在チェック
     if [[ ! -f ${inputFile} ]] ; then
-      echo "${inputFile} なんてファイルないです"
-      read -s -n 1 c
-      exit 100
+      echo "${inputFile} というファイルは存在しません。"
+      read -p "${inputFile} を作成しますか？(y/n) :" YN
+      if [ "${YN}" = "y" ]; then
+        touch "${inputFile}"
+        bash "${0}" "${inputFile}" 't'
+        exit 0
+      else
+        echo "終了します"
+        exit 1;
+      fi
     fi
 
     # 初期処理
@@ -1373,11 +1469,11 @@ selected_viewer='selected_viewer'
       'j')  clear
             joinNode
             ;;
-      'c')  clear
+      'k')  clear
             switchProgress
             ;;
       'h')  clear
-            displayHelp
+            setHideFlag
             ;;
       't')  clear
             displayTree
@@ -1440,6 +1536,20 @@ selected_viewer='selected_viewer'
 ###########################################
 # エントリーポイント
 ###########################################
+
+if [[ "${1}${2}${3}${4}" = '' ]] ; then
+  echo "引数が与えられなかったためヘルプ表示します"
+  read -s -n 1 c
+  displayHelp
+  read -s -n 1 c
+  exit 0
+fi
+if [[ "${1}" = 'h' ]] || [[ "${1}" = '-h' ]] || [[ "${1}" = '--help' ]]; then
+  displayHelp
+  read -s -n 1 c
+  exit 0
+fi
+
 main "${1}" "${2}" "${3}" "${4}"
 
 # 正常終了したときに一時ファイルを削除する
