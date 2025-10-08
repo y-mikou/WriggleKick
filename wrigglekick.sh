@@ -116,7 +116,7 @@
     local nextEntry
     local nextStartLine
 
-    readarray -t indexlist < <(grep -nP '^\.+\|.+' ${inputFile})
+    readarray -t indexlist < <(grep -nP '^#+\|.+' ${inputFile})
     readarray -t fileLines < "${inputFile}"
 
     maxNodeCnt="${#indexlist[@]}"
@@ -145,7 +145,7 @@
       fi
       
       depth="${content}"
-      depth="${depth%%[^.]*}"
+      depth="${depth%%[^#]*}"
       depth="${#depth}"
       
       title="$(extractField "${content}" 2)"
@@ -176,7 +176,7 @@
           local contentLines=""
           for ((lineNum=startLine; lineNum<=endLine; lineNum++)); do
             local line="${fileLines[$((lineNum-1))]}"
-            if [[ ! "${line}" =~ ^\. ]]; then
+            if [[ ! "${line}" =~ ^# ]]; then
               contentLines+="${line}"
             fi
           done
@@ -208,7 +208,7 @@
     local targetLineNo="${nodeStartLines[$((indexNo-1))]}"
     local presentTitlelineContent="$( getNodeTitlelineContent ${indexNo} )"
 
-    local part_before="$(extractField "${presentTitlelineContent}" 1)$(printf '\|')$(extractField "${presentTitlelineContent}" 2)"
+    local part_before="$(extractField "${presentTitlelineContent}" 1)$(printf '|')$(extractField "${presentTitlelineContent}" 2)"
     local part_after="$(extractField "${presentTitlelineContent}" 4)"
 
     modifiedTitlelineContent="$( echo -e "${part_before}\|${modifiyProgress}\|${part_after}" )"
@@ -230,7 +230,7 @@
 
     local targetLineNo="${nodeStartLines[$((${indexNo}-1))]}"
 
-    local part_before="$( seq ${nodeDepths[$((indexNo-1))]} | while read -r line; do printf '.'; done )"
+    local part_before="$( seq ${nodeDepths[$((indexNo-1))]} | while read -r line; do printf '#'; done )"
     part_before="${part_before}\|${nodeTitles[$((indexNo-1))]}\|${nodeProgress[$((indexNo-1))]}"
     local part_after="${nodeHideFlag[$((indexNo-1))]}"
 
@@ -252,7 +252,7 @@
     local modifyFlag="${option:0:1}" #先頭1文字のみ
     local targetLineNo="${nodeStartLines[$((${indexNo}-1))]}"
 
-    local part_before="$( seq ${nodeDepths[$((indexNo-1))]} | while read -r line; do printf '.'; done )"
+    local part_before="$( seq ${nodeDepths[$((indexNo-1))]} | while read -r line; do printf '#'; done )"
     part_before="${part_before}\|${nodeTitles[$((indexNo-1))]}\|${nodeProgress[$((indexNo-1))]}\|${nodeSymbols[$((indexNo-1))]}"
 
     local modifiedTitlelineContent="$( echo -e "${part_before}\|${modifyFlag}" )"
@@ -458,7 +458,7 @@
     local contentLines=""
     for ((lineNum=lineStart; lineNum<=lineEnd; lineNum++)); do
       local line="${fileLines[$((lineNum-1))]}"
-      if [[ ! "${line}" =~ ^\. ]]; then
+      if [[ ! "${line}" =~ ^# ]]; then
         contentLines+="${line}"
       fi
     done
@@ -635,7 +635,7 @@
 
     if [[ -z "${outputFile/ /}" ]] ; then
       local nodeTitles="${nodeTitles[$((${indexNo}-1))]}"
-      outputFile="./${nodeTitles}.txt"
+      outputFile="#/${nodeTitles}.txt"
       echo "出力ファイル名の指定がなかったため、ノード名を使用します。"
     fi
 
@@ -735,7 +735,7 @@
     startLineNextNode="$(   getLineNo $(( ${indexNo} +1 )) 1 )"
 
     depth="$( getDepth ${indexNo} )"
-    dots="$(seq ${depth} | while read -r line; do printf '.'; done)"
+    dots="$(seq ${depth} | while read -r line; do printf '#'; done)"
 
     echo -e "${dots}\|${nlString}" > "${tmpfileSelect}"
     cat "${inputFile}" | { head -n "${endLinePreviousNode}" > "${tmpfileHeader}"; cat >/dev/null;}
@@ -781,9 +781,9 @@
     tgtLine="$(getLineNo ${indexNo} 1 )"
 
     case "${char2}" in
-      'l')  sed -i -e "$tgtLine s/^\.\./\./g" "${inputFile}"
+      'l')  sed -i -e "$tgtLine s/^##/#/g" "${inputFile}"
             ;;
-      'r')  sed -i -e "$tgtLine s/^/\./g" "${inputFile}"
+      'r')  sed -i -e "$tgtLine s/^/#/g" "${inputFile}"
             ;;
       *)    echo 'err'
             exit 9
@@ -916,13 +916,13 @@
       'l')  for i in $(seq "${startNodeSelectGroup}" "${endNodeSelectGroup}") ;
             do
               tgtLine="$( getLineNo ${i} 1 )"
-              sed -i -e "${tgtLine} s/^\.\./\./g" "${inputFile}"
+              sed -i -e "${tgtLine} s/^##/#/g" "${inputFile}"
             done
             ;;
       'r')  for i in $(seq "${startNodeSelectGroup}" "${endNodeSelectGroup}") ;
             do
               tgtLine="$( getLineNo ${i} 1 )"
-              sed -i -e "${tgtLine} s/^\./\.\./g" "${inputFile}"
+              sed -i -e "${tgtLine} s/^#/##/g" "${inputFile}"
             done
             ;;
       *)    echo 'err'
@@ -1161,7 +1161,7 @@
     )
 
     local titleLine="$(cat ${tmpfileSelect} | head -n 1)"
-    local content="$(tail -n +2 ${tmpfileSelect} | sed -E 's/^\.+\|.+//g')"
+    local content="$(tail -n +2 ${tmpfileSelect} | sed -E 's/^#+\|.+//g')"
 
     echo -e "${titleLine}\n${content}" > "${tmpfileSelect}"
     sed -i -e '$a\' "${tmpfileSelect}" #編集の結果末尾に改行がない場合'
@@ -1210,9 +1210,9 @@
     if [[ ${maxNodeCnt} -eq 0 ]] ; then
       echo 'ノードがありません。先頭に第一ノードを追加します' 
       if [ ! -s "${inputFile}" ] ; then
-        echo -e ".\|1st Node\n" > "${inputFile}"
+        echo -e "#\|1st Node\n" > "${inputFile}"
       else
-        sed -i "1i.\|1st Node" "${inputFile}"
+        sed -i "1i#\|1st Node" "${inputFile}"
       fi
       read -s -n 1 c
       bash "${0}" "${inputFile}" 't'
@@ -1222,7 +1222,7 @@
     #全体文字数(ノードタイトル行と空行を除く)のカウント
     local allContentLines=""
     for line in "${fileLines[@]}"; do
-      if [[ ! "${line}" =~ ^\. ]]; then
+      if [[ ! "${line}" =~ ^# ]]; then
         allContentLines+="${line}"
       fi
     done
