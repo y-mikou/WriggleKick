@@ -60,7 +60,7 @@
   function extractField {
     local input="${1}"
     local fieldNum="${2}"
-    local IFS=$'\|'
+    local IFS=$'|'
     local -a fields=($input)
     echo "${fields[$((fieldNum-1))]}"
   }
@@ -73,13 +73,6 @@
       [[ "${element}" == "${target}" ]] && return 0
     done
     return 1
-  }
-
-  function countNonDotChars {
-    local input="${1}"
-    local cleaned="${input//[^$'\|']*$'\|'/}"
-    cleaned="${cleaned//$'\n'/}"
-    echo "${#cleaned}"
   }
 }
 
@@ -458,7 +451,7 @@
     local contentLines=""
     for ((lineNum=lineStart; lineNum<=lineEnd; lineNum++)); do
       local line="${fileLines[$((lineNum-1))]}"
-      if [[ ! "${line}" =~ ^# ]]; then
+      if [[ ! "${line}" =~ ^#.+ ]] ; then
         contentLines+="${line}"
       fi
     done
@@ -635,7 +628,7 @@
 
     if [[ -z "${outputFile/ /}" ]] ; then
       local nodeTitles="${nodeTitles[$((${indexNo}-1))]}"
-      outputFile="#/${nodeTitles}.txt"
+      outputFile="./${nodeTitles}.txt"
       echo "出力ファイル名の指定がなかったため、ノード名を使用します。"
     fi
 
@@ -652,7 +645,10 @@
     local startLineSelectGroup="$( getLineNo $( echo ${selectGroupFromTo} | cut -d ' ' -f 1 ) 1 )"
     local endLineSelectGroup="$( getLineNo $( echo ${selectGroupFromTo} | cut -d ' ' -f 2 ) 9 )"
 
-    sed -n "${startLineSelectGroup},${endLineSelectGroup}p" "${inputFile}" > "${outputFile}"
+      cat "${inputFile}" \
+    | sed -n "${startLineSelectGroup},${endLineSelectGroup}p" \
+    | sed '/^\/\//d' \
+    > "${outputFile}"
     
     echo "ノード範囲を出力しました: ${outputFile}"
     exit 0
@@ -1222,7 +1218,7 @@
     #全体文字数(ノードタイトル行と空行を除く)のカウント
     local allContentLines=""
     for line in "${fileLines[@]}"; do
-      if [[ ! "${line}" =~ ^# ]]; then
+      if [[ ! "${line}" =~ (^#.+|^//.+) ]]; then
         allContentLines+="${line}"
       fi
     done
