@@ -60,7 +60,7 @@
   function extractField {
     local input="${1}"
     local fieldNum="${2}"
-    local IFS=$'\t'
+    local IFS=$'\|'
     local -a fields=($input)
     echo "${fields[$((fieldNum-1))]}"
   }
@@ -77,7 +77,7 @@
 
   function countNonDotChars {
     local input="${1}"
-    local cleaned="${input//[^$'\t']*$'\t'/}"
+    local cleaned="${input//[^$'\|']*$'\|'/}"
     cleaned="${cleaned//$'\n'/}"
     echo "${#cleaned}"
   }
@@ -116,7 +116,7 @@
     local nextEntry
     local nextStartLine
 
-    readarray -t indexlist < <(grep -nP '^\.+\t.+' ${inputFile})
+    readarray -t indexlist < <(grep -nP '^\.+\|.+' ${inputFile})
     readarray -t fileLines < "${inputFile}"
 
     maxNodeCnt="${#indexlist[@]}"
@@ -208,10 +208,10 @@
     local targetLineNo="${nodeStartLines[$((indexNo-1))]}"
     local presentTitlelineContent="$( getNodeTitlelineContent ${indexNo} )"
 
-    local part_before="$(extractField "${presentTitlelineContent}" 1)$(printf '\t')$(extractField "${presentTitlelineContent}" 2)"
+    local part_before="$(extractField "${presentTitlelineContent}" 1)$(printf '\|')$(extractField "${presentTitlelineContent}" 2)"
     local part_after="$(extractField "${presentTitlelineContent}" 4)"
 
-    modifiedTitlelineContent="$( echo -e "${part_before}\t${modifiyProgress}\t${part_after}" )"
+    modifiedTitlelineContent="$( echo -e "${part_before}\|${modifiyProgress}\|${part_after}" )"
 
     sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
 
@@ -231,10 +231,10 @@
     local targetLineNo="${nodeStartLines[$((${indexNo}-1))]}"
 
     local part_before="$( seq ${nodeDepths[$((indexNo-1))]} | while read -r line; do printf '.'; done )"
-    part_before="${part_before}\t${nodeTitles[$((indexNo-1))]}\t${nodeProgress[$((indexNo-1))]}"
+    part_before="${part_before}\|${nodeTitles[$((indexNo-1))]}\|${nodeProgress[$((indexNo-1))]}"
     local part_after="${nodeHideFlag[$((indexNo-1))]}"
 
-    local modifiedTitlelineContent="$( echo -e "${part_before}\t${modifySymbol}\t${part_after}" )"
+    local modifiedTitlelineContent="$( echo -e "${part_before}\|${modifySymbol}\|${part_after}" )"
 
     sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
 
@@ -253,9 +253,9 @@
     local targetLineNo="${nodeStartLines[$((${indexNo}-1))]}"
 
     local part_before="$( seq ${nodeDepths[$((indexNo-1))]} | while read -r line; do printf '.'; done )"
-    part_before="${part_before}\t${nodeTitles[$((indexNo-1))]}\t${nodeProgress[$((indexNo-1))]}\t${nodeSymbols[$((indexNo-1))]}"
+    part_before="${part_before}\|${nodeTitles[$((indexNo-1))]}\|${nodeProgress[$((indexNo-1))]}\|${nodeSymbols[$((indexNo-1))]}"
 
-    local modifiedTitlelineContent="$( echo -e "${part_before}\t${modifyFlag}" )"
+    local modifiedTitlelineContent="$( echo -e "${part_before}\|${modifyFlag}" )"
 
     sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
 
@@ -737,7 +737,7 @@
     depth="$( getDepth ${indexNo} )"
     dots="$(seq ${depth} | while read -r line; do printf '.'; done)"
 
-    echo -e "${dots}\t${nlString}" > "${tmpfileSelect}"
+    echo -e "${dots}\|${nlString}" > "${tmpfileSelect}"
     cat "${inputFile}" | { head -n "${endLinePreviousNode}" > "${tmpfileHeader}"; cat >/dev/null;}
 
     if [[ ${indexNo} -eq ${maxNodeCnt} ]] ;then
@@ -1161,7 +1161,7 @@
     )
 
     local titleLine="$(cat ${tmpfileSelect} | head -n 1)"
-    local content="$(tail -n +2 ${tmpfileSelect} | sed -E 's/^\.+\t.+//g')"
+    local content="$(tail -n +2 ${tmpfileSelect} | sed -E 's/^\.+\|.+//g')"
 
     echo -e "${titleLine}\n${content}" > "${tmpfileSelect}"
     sed -i -e '$a\' "${tmpfileSelect}" #編集の結果末尾に改行がない場合'
@@ -1210,9 +1210,9 @@
     if [[ ${maxNodeCnt} -eq 0 ]] ; then
       echo 'ノードがありません。先頭に第一ノードを追加します' 
       if [ ! -s "${inputFile}" ] ; then
-        echo -e ".\t1st Node\n" > "${inputFile}"
+        echo -e ".\|1st Node\n" > "${inputFile}"
       else
-        sed -i "1i.\t1st Node" "${inputFile}"
+        sed -i "1i.\|1st Node" "${inputFile}"
       fi
       read -s -n 1 c
       bash "${0}" "${inputFile}" 't'
