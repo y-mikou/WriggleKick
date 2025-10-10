@@ -53,17 +53,10 @@
   }
 }
 
-: "外部プロセス最適化ユーティリティ" && {
+: "ノードタイトル行の分解" && {
   ##############################################################################
   # 外部プロセス呼び出しを高速化するための前処理群 
   ##############################################################################
-  function extractField {
-    local input="${1}"
-    local fieldNum="${2}"
-    local IFS=$'|'
-    local -a fields=($input)
-    echo "${fields[$((fieldNum-1))]}"
-  }
   function parseMetadata {
     local input="${1}"
     local fieldNum="${2}"
@@ -73,9 +66,6 @@
     local -a fields=($metadata)
     echo "${fields[$((fieldNum-1))]}"
   }
-
-
-
   function arrayContains {
     local target="${1}"
     shift
