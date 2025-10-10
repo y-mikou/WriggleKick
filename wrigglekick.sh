@@ -152,9 +152,7 @@
       depth="${depth%%[^#]*}"
       depth="${#depth}"
       
-      local withoutDepth="${content#*\#}"
-      withoutDepth="${withoutDepth#\#*}"
-      withoutDepth="${withoutDepth# }"
+      local withoutDepth="${content##*\# }"
       
       title="${withoutDepth%%\[*}"
       title="${title% }"
