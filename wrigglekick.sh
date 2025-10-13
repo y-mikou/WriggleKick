@@ -31,6 +31,7 @@
     echo '　　　　　d.....対象ノードの削除'
     echo '　　　　　gd....対象ノードの削除'
     echo '　　　　　h.....対象ノードに不可視フラグを設定(1:不可視/0:可視)'
+    echo '　　　　　gh....対象ノードの配下ノードにまとめて不可視フラグを設定(1:不可視/0:可視)'
     echo '　　　　　i.....対象ノードの下に新規ノード挿入。追加引数としてノード名'
     echo '　　　　　ie....対象ノードの下に新規ノード挿入、即編集モードへ。追加引数としてノード名'
     echo '　　　　　mu....対象ノードひとつを上へ移動'
@@ -262,6 +263,42 @@
 
     bash "${0}" "${inputFile}" 'ta'
     exit 0
+  }
+
+  ##############################################################################
+  # 配下ノードに不可視フラグ(1:不可視/0:可視)を設定。指定シンボルを空にした場合は0(可視)
+  # 引数:なし(グローバルのみ)
+  # 引数2:フラグ(1/0)
+  ##############################################################################
+  function hideGroup {
+    local SelectGroupNodeFromTo="$(getNodeNoInGroup ${indexNo} '' )"
+    local startNodeSelectGroup="$( echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 1 )"
+    local endNodeSelectGroup="$( echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 2 )"
+
+    local modifiedTitlelineContent=''
+    local modifyFlag="${option:0:1}" #先頭1文字のみ
+
+    local depth_markers=''
+    local title=''
+    local progress=''
+    local symbol=''
+
+    for i in $(seq "${startNodeSelectGroup}" "${endNodeSelectGroup}") ;
+    do
+      tgtLine="$( getLineNo ${i} 1 )"
+
+      depth_markers="$( seq ${nodeDepths[$((i-1))]} | while read -r line; do printf '#'; done )"
+      title="${nodeTitles[$((i-1))]}"
+      progress="${nodeProgress[$((i-1))]}"
+      symbol="${nodeSymbols[$((i-1))]}"
+
+      modifiedTitlelineContent="${depth_markers} ${title} [${progress},${symbol},${modifyFlag}]"
+      sed -i "${tgtLine}c ${modifiedTitlelineContent}" "${inputFile}"
+    done
+
+    bash "${0}" "${inputFile}" 'ta'
+    exit 0
+
   }
 }
 
@@ -1327,7 +1364,7 @@
     local depth=$(getDepth ${indexNo})
 
     #動作指定のチェック
-    allowActionList=('h' 'e' 'd' 'gd' 'i' 'ie' 't' 'th' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'k' 'gc' 's' 'o')
+    allowActionList=('h' 'gh' 'e' 'd' 'gd' 'i' 'ie' 't' 'th' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'k' 'gc' 's' 'o')
     if ! arrayContains "${action}" "${allowActionList[@]}"; then
       echo '引数2:無効なアクションです'
       read -s -n 1 c
@@ -1335,7 +1372,7 @@
     fi
 
     unset allowActionList
-    allowActionList=('e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'k' 'gc' 's' 'o')
+    allowActionList=('h' 'gh' 'e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'k' 'gc' 's' 'o')
     if arrayContains "${action}" "${allowActionList[@]}"; then
       if [[ ${indexNo} = '' ]] ; then
         echo "ノードを指定してください"
@@ -1506,6 +1543,8 @@
               'd')  deleteGroup
                     ;;
               'j')  joinGroup
+                    ;;
+              'h')  hideGroup
                     ;;
               *)  case "${char3}" in 
                     [ud]) clear
