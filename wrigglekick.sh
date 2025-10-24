@@ -12,11 +12,19 @@
 
 : "ヘルプ表示" && {
   ##############################################################################
-  # 引数:なし
+  # 引数:なし、もしくはコマンド
   ##############################################################################
-  function displayHelp {
+  function commandList {
     echo '■Simple Outliner[Wriggle Kick]'
     echo '>help'
+    echo '[Wriggle Kick]はしょぼいアウトライナー(日本語用)です。'
+    echo '#でノードを示す構造化テキストファイルのアウトラインを対象とし、'
+    echo '以下引数での動作指定に従いアウトラインを表示し、構造を変更したり、ノードを削除や追加したり、ノードに属性を付与したりします。'
+    echo '編集を指示した場合は指定したテキストエディタへ対象のノードを流し込むことでノードを指定した編集を可能にします。'
+    echo '編集を加えてテキストエディタを終了すると、元のファイルにもその変更を適用します。'
+    echo '動作指定ごとの説明は、対象ファイルを指定せずに'
+    echo 'bash wrigglekick h [command]'
+    echo 'で確認してください。'
     echo '　引数1:対象File'
     echo '　引数2:動作指定'
     echo '　　　　　t.....ツリービュー(省略可)　hオプション:不可視フラグonのノードを非表示'
@@ -45,6 +53,7 @@
     echo '　　　　　j.....指定ノードを、下のノードと結合'
     echo '　　　　　gj....自分の配下ノードを、自分に統合'
     echo '　　　　　k.....指定ノードの済/未マークを切り替える'
+    echo '　　　　　gk....自分の配下ノードにまとめて済/未フラグを設定(1:済/0:未)'
     echo '　　　　　gc....自分の配下ノードを含んだ文字数を通知する'
     echo '　　　　　s.....指定ノードに表示シンボルを設定する。追加引数でシンボルを指定(1文字)'
     echo '　　　　　o.....自分の配下ノードを含んだ範囲を別ファイル出力する。追加引数で出力ファイル名'
@@ -52,6 +61,344 @@
     echo '　引数3:動作対象ノード番号/ノード指定の無い動作ではオプション'
     echo '　引数4:動作指定ごとに必要なオプション'
   }
+
+  function help-t {
+    clear
+    echo '■t系コマンド ヘルプ'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] t/tl/ta'
+    echo ''
+    echo 't系コマンド([t]ree)には、他にtl([t]ree [l]ine)、ta([t]ree [a]ll)のファミリーがあります。'
+    echo ''
+    echo 't系コマンドファミリーはいずれも対象ファイル(実際に起動する際には第1引数となる)の'
+    echo 'ツリー構造を表示するコマンドです。ファミリー内のコマンドごとに表示される情報が異なります。'
+    echo ''
+    echo 'hコマンドによって不可視属性が設定されたノードは、更にhオプションを渡すことでノードを非表示にできます。'
+    echo 'fコマンドとあわせて、編集時の視覚ノイズ低減にご利用ください。'
+    echo ''
+    echo '+--------+--------+------+------+----+------+------+------+------+--------+--------+'
+    echo '|コマンド|node番号|開始行|終了行|深さ|文字数|済未済|可視性|ツリー|属性記号|タイトル|'
+    echo '+--------+--------+------+------+----+------+------+------+------+--------+--------+'
+    echo '|    t   |   ＊   |      |      |    |      |  ＊  |      |  ＊  |   ＊   |   ＊   |'
+    echo '|   tl   |   ＊   |  ＊  |      |    |  ＊  |  ＊  |      |  ＊  |   ＊   |   ＊   |'
+    echo '|   ta   |   ＊   |  ＊  |  ＊  | ＊ |  ＊  |  ＊  |  ＊  |  ＊  |   ＊   |   ＊   |'
+    echo '+--------+--------+------+------+----+------+------+------+------+--------+--------+'
+  }
+  function help-f {
+    clear
+    echo '■f系コマンド ヘルプ'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] f/fl/fa'
+    echo ''
+    echo 'f系コマンド([f]orcus)には、他にfl([f]orcus [l]ine)、fa([f]orcus [a]ll)のファミリーがあります。'
+    echo ''
+    echo 'f系コマンドファミリーはいずれも対象ファイル(実際に起動する際には第1引数となる)の'
+    echo '指定したノード番号を先頭とするグループ内に絞ってツリー構造を表示するコマンドです。'
+    echo ''
+    echo 'tコマンドとfコマンドの違いは、表示するノードをグループに絞っているかどうかだけです。'
+    echo ''
+    echo 'hコマンドによって不可視属性が設定されたノードは、更にhオプションを渡すことでノードを非表示にできます。'
+    echo '編集時の視覚ノイズ低減にご利用ください。'
+    echo ''
+    echo '※グループとは、'
+    echo '指定したノードからノード番号を下っていき'
+    echo '最初に「基準と同じか基準より浅いノード」が発見されたときに、'
+    echo '指定したノード〜発見されたノードの一つ手前までの範囲を指します。'
+    echo '最後尾のノードに到達しても基準と同じかそれより浅いノードが見つからなかった場合は'
+    echo '指定したノード〜最後尾のノードをグループとします。'
+    echo ''
+    echo 'ex:'
+    echo '1 深さ1'
+    echo '2 └深さ2'
+    echo '3 └深さ2'
+    echo '4   └深さ3'    
+    echo '5 深さ1'
+    echo '6 └深さ2'
+    echo ''
+    echo '→指定ノード=3のとき、グループは3〜4'
+    echo '→指定ノード=2のとき、グループは2だけ'
+    echo '→指定ノード=1のとき、グループは1〜4'
+    echo ''
+    echo 'ファミリーのコマンドごとに表示される情報が異なります。'
+    echo '(基本的にtコマンドと同じ情報が参照できます。)'
+    echo ''
+    echo '+--------+--------+------+------+----+------+------+------+------+--------+--------+'
+    echo '|コマンド|node番号|開始行|終了行|深さ|文字数|済未済|可視性|ツリー|属性記号|タイトル|'
+    echo '+--------+--------+------+------+----+------+------+------+------+--------+--------+'
+    echo '|    f   |   ＊   |      |      |    |      |  ＊  |      |  ＊  |   ＊   |   ＊   |'
+    echo '|   fl   |   ＊   |  ＊  |      |    |  ＊  |  ＊  |      |  ＊  |   ＊   |   ＊   |'
+    echo '|   fa   |   ＊   |  ＊  |  ＊  | ＊ |  ＊  |  ＊  |  ＊  |  ＊  |   ＊   |   ＊   |'
+    echo '+--------+--------+------+------+----+------+------+------+------+--------+--------+'
+  }
+  function help-v {
+    clear
+    echo '■v系コマンド ヘルプ'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] v/gv [対象ノード番号]'
+    echo ''
+    echo 'v系コマンド([v]iew)には、他にgv([g]roup [v]iew)のファミリーがあります。'
+    echo ''
+    echo 'v系コマンドは編集を行わない前提で、対象ファイルの指定ノードを閲覧します。'
+    echo '閲覧は、当スクリプトが稼働する環境にあるファイルビューアを呼び出す形で実現されます。'
+    echo '当スクリプト冒頭の変数「selected_viewer」の値を、任意のビューア呼び出しコマンド(例えばlessなど)に置き換えてください。'
+    echo '指定がない場合、less > more > view > cat の優先順で存在するものが使用されます。'
+    echo 'ビューワとしてnanoのようなエディタを指定することも可能ですが、正常動作は保証しません。'
+    echo ''
+    echo 'gvコマンドの場合、指定ノードを先頭としたグループを横断的に閲覧します。'
+    echo ''
+    echo '※グループとは、'
+    echo '指定したノードからノード番号を下っていき'
+    echo '最初に「基準と同じか基準より浅いノード」が発見されたときに、'
+    echo '指定したノード〜発見されたノードの一つ手前までの範囲を指します。'
+    echo '最後尾のノードに到達しても基準と同じかそれより浅いノードが見つからなかった場合は'
+    echo '指定したノード〜最後尾のノードをグループとします。'
+    echo ''
+    echo 'ex:'
+    echo '1 深さ1'
+    echo '2 └深さ2'
+    echo '3 └深さ2'
+    echo '4   └深さ3'    
+    echo '5 深さ1'
+    echo '6 └深さ2'
+    echo ''
+    echo '→指定ノード=3のとき、グループは3〜4'
+    echo '→指定ノード=2のとき、グループは2だけ'
+    echo '→指定ノード=1のとき、グループは1〜4'
+  }
+  function help-m {
+    clear
+    echo '■m系コマンド ヘルプ'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] mu/ml/md/mr [対象ノード番号]'
+    echo ''
+    echo 'm系コマンド([m]ove)には、mu([m]ove [u]p)、md([m]ove [d]own)、ml([m]ove [l]eft)、mr([m]ove [r]ight)のファミリーがあります。'
+    echo ''
+    echo 'それぞれ、指定のノードの位置を変更します。'
+    echo ''
+    echo 'ml([m]ove [l]eft)コマンドは、指定のノードを、一つ左に移動します。つまり、深さを一つ浅くします。'
+    echo 'mr([m]ove [r]ight)コマンドは、指定のノードを、一つ右に移動します。つまり、深さを一つ深くします。'
+    echo 'mu([m]ove [u]p)コマンドは、指定のノードを、一つ上に移動します。つまり、一つ上のノードと入れ替えます。'
+    echo 'md([m]ove [d]own)コマンドは、指定のノードを、一つ下に移動します。つまり、一つ下のノードと入れ替えます。'
+    echo ''
+    echo '※この移動をノード一つではなく、グループごと行うgmコマンドファミリーも存在します。'
+  }
+  function help-gm {
+    clear
+    echo '■gm系コマンド ヘルプ'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] gmu/gml/gmd/gmr [対象ノード番号]'
+    echo ''
+    echo 'gm系コマンド([g]roup [m]ove)には、'
+    echo 'gmu([g]roup [m]ove [u]p)、gmd([g]roup[m]ove [d]own)、gml([g]roup [m]ove [l]eft)、gmr([g]roup [m]ove [r]ight)'
+    echo 'のファミリーがあります。'
+    echo ''
+    echo 'それぞれ、指定のノードを先頭としたグループごと、位置を変更します。'
+    echo ''
+    echo 'gml([g]roup [m]ove [l]eft)コマンドは、'
+    echo '指定のノードを先頭としたグループ全体を、一つ左に移動します。つまり、深さを一つ浅くします。'
+    echo 'gmr([g]roup [m]ove [r]ight)コマンドは、'
+    echo '指定のノードを先頭としたグループ全体を、一つ右に移動します。つまり、深さを一つ深くします。'
+    echo 'gmu([g]roup [m]ove [u]p)コマンドは、'
+    echo '指定のノード先頭としたグループ全体を、一つ上にある、同じ深さのグループ全体と入れ替えます。'
+    echo 'gmd([g]roup [m]ove [d]own)コマンドは、'
+    echo '指定のノード先頭としたグループ全体を、一つ下にある、同じ深さのグループ全体と入れ替えます。'
+    echo ''
+    echo '※グループとは、'
+    echo '指定したノードからノード番号を下っていき'
+    echo '最初に「基準と同じか基準より浅いノード」が発見されたときに、'
+    echo '指定したノード〜発見されたノードの一つ手前までの範囲を指します。'
+    echo '最後尾のノードに到達しても基準と同じかそれより浅いノードが見つからなかった場合は'
+    echo '指定したノード〜最後尾のノードをグループとします。'
+    echo ''
+    echo 'ex:'
+    echo '1 深さ1'
+    echo '2 └深さ2'
+    echo '3 └深さ2'
+    echo '4   └深さ3'    
+    echo '5 深さ1'
+    echo '6 └深さ2'
+    echo ''
+    echo 'gmd 1 としたとき、'
+    echo 'ノード番号1と同じ深さを持つ次のノードを先頭としたグループとグループごと入れ替わるため、実行後は'
+    echo ''
+    echo '1 深さ1'
+    echo '2 └深さ2'
+    echo '3 深さ1'
+    echo '4 └深さ2'
+    echo '5 └深さ2'
+    echo '6   └深さ3'
+    echo ''
+    echo 'となります'
+    echo ''
+    echo '上下に同じ深さの別グループが存在しなかった場合、移動されずに終了します。'
+    echo '先頭ノードがすでに深さ1のときには、gmlコマンドは処理されずに終了します。'
+    echo '深さには制限を設けていないのでgmrコマンドは必ず移動しますが、あまり深すぎる場合の動作の保証はしません。'
+  }
+  function help-d {
+    clear
+    echo '■d系コマンド ヘルプ'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] d/gd [対象ノード番号]'
+    echo ''
+    echo 'd系コマンド([d]elete)には、gd([g]roup [d]elete)のファミリーがあります。'
+    echo ''
+    echo 'dコマンドは、指定したノードを削除します。'
+    echo ''
+    echo 'gdコマンドは、'
+    echo '指定のノードを先頭としたグループ全体を、一気に削除します。'
+    echo ''
+    echo '※グループとは、'
+    echo '指定したノードからノード番号を下っていき'
+    echo '最初に「基準と同じか基準より浅いノード」が発見されたときに、'
+    echo '指定したノード〜発見されたノードの一つ手前までの範囲を指します。'
+    echo '最後尾のノードに到達しても基準と同じかそれより浅いノードが見つからなかった場合は'
+    echo '指定したノード〜最後尾のノードをグループとします。'
+    echo ''
+    echo 'ex:'
+    echo '1 深さ1'
+    echo '2 └深さ2'
+    echo '3 └深さ2'
+    echo '4   └深さ3'    
+    echo '5 深さ1'
+    echo '6 └深さ2'
+    echo ''
+    echo 'gd 3 としたとき、実行後は'
+    echo ''
+    echo '1 深さ1'
+    echo '2 └深さ2'
+    echo '3 深さ1'
+    echo '4 └深さ2'
+    echo ''
+    echo 'となります。'
+  }
+  function help-j {
+    clear
+    echo '■j系コマンド ヘルプ'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] j [対象ノード番号]'
+    echo ''
+    echo 'j系コマンド([j]oin)には、今のところ他のファミリーはありません。'
+    echo ''
+    echo 'jコマンドは、指定したノードとそのひとつ下のノードを結合して、一つのノードにします。'
+    echo 'ノードの名称や深さは、指定したノードのものになります。'
+  }
+  function help-k {
+    clear
+    echo '■k系コマンド ヘルプ'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] k/gk [対象ノード番号]'
+    echo ''
+    echo 'k系コマンド(chec[k])には、他にgkコマンド([g]roup chec[k])があります。'
+    echo ''
+    echo 'kコマンドは、指定したノードの完了フラグのオンオフを切り替えます'
+    echo '現在未完了状態の場合は完了に、完了状態の場合は未完了になります。'
+    echo ''
+    echo 'gkコマンドは、指定したグループ全体の完了/未了を設定します。'
+    echo 'kコマンドと異なり、切り替えではなく、追加引数として0を与えると未了、1を与えると完了になり、'
+    echo 'グループ内のノードすべてを完了、または未了にします。'
+    echo ''
+    echo '※グループとは、'
+    echo '指定したノードからノード番号を下っていき'
+    echo '最初に「基準と同じか基準より浅いノード」が発見されたときに、'
+    echo '指定したノード〜発見されたノードの一つ手前までの範囲を指します。'
+    echo '最後尾のノードに到達しても基準と同じかそれより浅いノードが見つからなかった場合は'
+    echo '指定したノード〜最後尾のノードをグループとします。'
+  }
+  function help-gc {
+    clear
+    echo '■gc系コマンド ヘルプ'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] gc [対象ノード番号]'
+    echo ''
+    echo 'gc系コマンド([g]roup [c]ount)には、今のところ他のファミリーはありません。'
+    echo ''
+    echo 'gcコマンドは、指定したグループ内全体の文字数をカウントして表示します。'
+    echo '但しこの文字数には、「//」で始まるコメントアウト行の文字数は合計されません。'
+  }
+  function help-h {
+    clear
+    echo '■h系コマンド ヘルプ'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] h/gh [対象ノード番号] ([0/1])'
+    echo ''
+    echo 'h系コマンド([h]ide)には、他にgh([g]roup [h]ide)のファミリーがあります。'
+    echo ''
+    echo 'hコマンドは、指定のノードの不可視フラグを切り替えます。'
+    echo '現在不可視の場合は可視に、可視の場合は不可視になります。'
+    echo ''
+    echo '不可視設定されたノードは、tコマンド、fコマンドにて、追加の引数hを指定した場合に表示されません'
+    echo '(追加引数hを付与しない場合は何も影響を与えません)'
+    echo ''    
+    echo 'ghコマンドは、指定したグループ全体の可視/不可視を設定します。'
+    echo 'hコマンドと異なり、切り替えではなく、追加引数として0を与えると可視、1を与えると不可視になり、'
+    echo 'グループ内のノードすべてを可視、または不可視にします。'
+  }
+  function help-s {
+    clear
+    echo '■s系コマンド ヘルプ'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] s [対象ノード番号] [任意の文字]'
+    echo ''
+    echo 's系コマンド([s]imbol)には、他にはファミリーはありません。'
+    echo ''
+    echo 'sコマンドは、指定のノードに任意の一文字の属性を付与します。'
+    echo '属性を示す文字は絵文字を想定していますが、文字なら何でも良いです。'
+    echo '属性を消す場合は、記号として空文字を指定してください。'
+  }
+  function help-i {
+    clear
+    echo '■i系コマンド ヘルプ'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] i/ie [対象ノード番号] [ノードタイトル]'
+    echo ''
+    echo 'i系コマンド([i]nsert)には、他にie([i]nsert [e]dit)のファミリーがあります。'
+    echo ''
+    echo 'iコマンドは、指定のノードの後ろに新しいノードを追加します。'
+    echo 'ノードタイトルの指定がない場合は、デフォルトのタイトルが付与されます。'
+    echo ''
+    echo 'ieコマンドは、指定のノードの後ろに新しいノードを追加した後、すぐに編集モードに入ります。'
+    echo '※編集モードについては、eコマンドのヘルプを参照してください。'
+    echo 'iコマンド同様、ノードタイトルの指定がない場合は、デフォルトのタイトルが付与されます。'
+  }
+  function help-o {
+    clear
+    echo '■o系コマンド ヘルプ'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] o [出力ファイル名]'
+    echo ''
+    echo 'o系コマンド([o]utput)には、今のところ他のファミリーはありません。'
+    echo ''
+    echo 'oコマンドは、指定のノードを先頭とするグループを、出力ファイル名として別ファイルに保存します。'
+    echo '※指定ノード単一ではありません。単一ノードだけを書き出す必要が出たら作ります'
+    echo '出力ファイル名の指定がない場合は、指定したノードのタイトルが使用されます。'
+    echo ''
+    echo 'oコマンドで出力されるファイルには「//」で始まるコメントアウト行は含まれません。'
+  }
+  function help-e {
+    clear
+    echo '■e系コマンド ヘルプ'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] (e) [対象ノード番号]'
+    echo ''
+    echo 'e系コマンド([v]iew)には、他にはファミリーはありません。'
+    echo ''
+    echo 'eコマンドのみ、コマンド自体を省略できます。即ち'
+    echo '(bash) wrigglekick.sh [対象ファイル] [対象ノード番号]'
+    echo 'と表記した場合には、それはeコマンドとみなします。'
+    echo ''
+    echo 'e系コマンドは対象ファイルの指定ノードをエディタへ渡します。'
+    echo '当スクリプトでは、編集は稼働する環境にあるテキストエディタを呼び出す形で実現されます。'
+    echo '当スクリプト冒頭の変数「selected_editor」の値を、任意のエディタ呼び出しコマンド(例えばviなど)に置き換えてください。'
+    echo '指定がない場合、ms_edit > micro > nano > vi > ed の優先順で存在するものが使用されます。'
+  }
+
+  function displayHelp {
+    local command="${1}"
+    case "${command}" in
+      't'|'tl'|'ta') help-t;;
+      'f'|'fl'|'fa') help-f;;
+      'v'|'gv') help-v;;
+      'm'|'mu'|'md'|'ml'|'mr') help-m;;
+      'gm'|'gmu'|'gmd'|'gml'|'gmr') help-gm;;
+      'd'|'gd') help-d;;
+      'j'|'gj') help-j;;
+      'gc') help-gc;;
+      'k') help-k;;
+      'h') help-h;;
+      's') help-s;;
+      'i'|'ie') help-e;;
+      'o') help-o;;
+      'e') help-o;;
+      *) commandList;;
+    esac
+  }
+
 }
 
 : "ノードタイトル行の分解" && {
@@ -160,8 +507,7 @@
       nodeTitles+=("${title}")
       nodeSymbols+=("${symbol:= }") #設定されていない場合には空白を一時的に設定
       nodeHideFlags+=("${hideFlag:=0}") #設定されていない場合には0を一時的に設定
-
-      nodeProgress+=("${progress:=0}")
+      nodeProgress+=("${progress:=0}") #設定されていない場合には0を一時的に設定
 
       #taかtlの場合以外はスキップする
 
@@ -217,6 +563,42 @@
     bash "${0}" "${inputFile}" 'tl'
     exit 0
   }
+  ##############################################################################
+  # 配下ノードに完了フラグ(1:完了/0:未完了)を設定。指定シンボルを空にした場合は0(未完了)
+  # 引数:なし(グローバルのみ)
+  # 引数2:フラグ(1/0)
+  ##############################################################################
+  function setProgressGroup {
+    local SelectGroupNodeFromTo="$(getNodeNoInGroup ${indexNo} '' )"
+    local startNodeSelectGroup="$( echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 1 )"
+    local endNodeSelectGroup="$( echo ${SelectGroupNodeFromTo} | cut -d ' ' -f 2 )"
+
+    local modifiedTitlelineContent=''
+    local modifyFlag="${option:0:1}" #先頭1文字のみ
+
+    local depth_markers=''
+    local title=''
+    local progress=''
+    local symbol=''
+
+    for i in $(seq "${startNodeSelectGroup}" "${endNodeSelectGroup}") ;
+    do
+      tgtLine="$( getLineNo ${i} 1 )"
+
+      depth_markers="$( seq ${nodeDepths[$((i-1))]} | while read -r line; do printf '#'; done )"
+      title="${nodeTitles[$((i-1))]}"
+      # progress="${nodeProgress[$((i-1))]}"
+      symbol="${nodeSymbols[$((i-1))]}"
+      hideFlag="${nodeHideFlags[$((i-1))]}"
+
+      modifiedTitlelineContent="${depth_markers} ${title} [${modifyFlag},${symbol},${hideFlag}]"
+      sed -i "${tgtLine}c ${modifiedTitlelineContent}" "${inputFile}"
+    done
+
+    bash "${0}" "${inputFile}" 'ta'
+    exit 0
+
+  }
 
   ##############################################################################
   # 選択ノードにシンボルを設定。指定シンボルを空にした場合は削除
@@ -243,21 +625,29 @@
   }
 
   ##############################################################################
-  # 選択ノードに不可視フラグ(1:不可視/0:可視)を設定。指定シンボルを空にした場合は0(可視)
+  # 選択ノードに不可視フラグを切り替え。指定シンボルを空にした場合は0(可視)
   # 引数:なし(グローバルのみ)
   # 引数2:フラグ(1/0)
   ##############################################################################
   function setHideFlag {
 
-    local modifyFlag="${option:0:1}" #先頭1文字のみ
     local targetLineNo="${nodeStartLines[$((${indexNo}-1))]}"
+
+    local presentHideFlag="${nodeHideFlags[$((indexNo-1))]:=0}"
+    presentHideFlag="${presentHideFlag:0:1}" #不正な文字が入っていた場合に1文字に削る
+
+    if [[ ${presentHideFlag} -eq 0 ]] ; then
+      modifyHideFlag=1
+    else
+      modifyHideFlag=0
+    fi
 
     local depth_markers="$( seq ${nodeDepths[$((indexNo-1))]} | while read -r line; do printf '#'; done )"
     local title="${nodeTitles[$((indexNo-1))]}"
     local progress="${nodeProgress[$((indexNo-1))]}"
     local symbol="${nodeSymbols[$((indexNo-1))]}"
 
-    local modifiedTitlelineContent="${depth_markers} ${title} [${progress},${symbol},${modifyFlag}]"
+    local modifiedTitlelineContent="${depth_markers} ${title} [${progress},${symbol},${modifyHideFlag}]"
 
     sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
 
@@ -1364,7 +1754,7 @@
     local depth=$(getDepth ${indexNo})
 
     #動作指定のチェック
-    allowActionList=('h' 'gh' 'e' 'd' 'gd' 'i' 'ie' 't' 'th' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'k' 'gc' 's' 'o')
+    allowActionList=('h' 'gh' 'e' 'd' 'gd' 'i' 'ie' 't' 'th' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'k' 'gk' 'gc' 's' 'o')
     if ! arrayContains "${action}" "${allowActionList[@]}"; then
       echo '引数2:無効なアクションです'
       read -s -n 1 c
@@ -1372,7 +1762,7 @@
     fi
 
     unset allowActionList
-    allowActionList=('h' 'gh' 'e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'k' 'gc' 's' 'o')
+    allowActionList=('h' 'gh' 'e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'k' 'gk' 'gc' 's' 'o')
     if arrayContains "${action}" "${allowActionList[@]}"; then
       if [[ ${indexNo} = '' ]] ; then
         echo "ノードを指定してください"
@@ -1421,11 +1811,11 @@
       return 1
     fi
 
-    if [[ "${action}" = 'h' ]] && [[ ! "${option}" =~ [0-1] ]] ; then
-      echo "不可視設定は0か1で指定してください。"
-      read -s -n 1 c
-      return 1
-    fi
+    # if [[ "${action}" = 'h' ]] && [[ ! "${option}" =~ [0-1] ]] ; then
+    #   echo "不可視設定は0か1で指定してください。"
+    #   read -s -n 1 c
+    #   return 1
+    # fi
 
   }
 }
@@ -1540,6 +1930,8 @@
                     ;;
               'c')  dispGroupCharCount
                     ;;
+              'k')  setProgressGroup
+                    ;;
               'd')  deleteGroup
                     ;;
               'j')  joinGroup
@@ -1591,8 +1983,8 @@ if [[ "${1}${2}${3}${4}" = '' ]] ; then
   read -s -n 1 c
   exit 0
 fi
-if [[ "${1}" = 'h' ]] || [[ "${1}" = '-h' ]] || [[ "${1}" = '--help' ]]; then
-  displayHelp
+if [[ "${1}" = 'h' ]] || [[ "${1}" = '-h' ]] || [[ "${1}" = '--help' ]] || [[ "${1}" = '/h' ]]; then
+  displayHelp "${2}"
   read -s -n 1 c
   exit 0
 fi
