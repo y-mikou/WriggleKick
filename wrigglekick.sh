@@ -1751,8 +1751,6 @@
   ##############################################################################
   function parameterCheck {
     
-    local depth=$(getDepth ${indexNo})
-
     #動作指定のチェック
     allowActionList=('h' 'gh' 'e' 'd' 'gd' 'i' 'ie' 't' 'th' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'k' 'gk' 'gc' 's' 'o')
     if ! arrayContains "${action}" "${allowActionList[@]}"; then
@@ -1771,12 +1769,21 @@
       fi
     fi
     if arrayContains "${action}" "${allowActionList[@]}"; then
+      if [[ ! "${indexNo}" =~ ^[0-9]+$ ]] ; then
+        echo "ノード番号の指定が不正です：${indexNo}"
+        read -s -n 1 c
+        return 1
+      fi
+    fi
+    if arrayContains "${action}" "${allowActionList[@]}"; then
       if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxNodeCnt} ]] ; then
         echo "${indexNo}番目のノードは存在しません"
         read -s -n 1 c
         return 1
       fi
     fi
+
+    local depth=$(getDepth ${indexNo})
 
     #動作指定とノード番号のチェック(ノード状態の取得が必要なチェックは後続で実施)
     unset allowActionList
@@ -1810,12 +1817,6 @@
       read -s -n 1 c
       return 1
     fi
-
-    # if [[ "${action}" = 'h' ]] && [[ ! "${option}" =~ [0-1] ]] ; then
-    #   echo "不可視設定は0か1で指定してください。"
-    #   read -s -n 1 c
-    #   return 1
-    # fi
 
   }
 }
@@ -1888,6 +1889,7 @@
     if [[ ${?} -ne 0 ]] ; then 
       exit 1
     fi
+
 
     makeTmpfile # 一時ファイルを作成
 
