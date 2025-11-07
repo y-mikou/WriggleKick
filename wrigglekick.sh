@@ -560,7 +560,7 @@
 
     sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
 
-    bash "${0}" "${inputFile}" 'tl'
+    displayLastTree
     exit 0
   }
   ##############################################################################
@@ -595,7 +595,7 @@
       sed -i "${tgtLine}c ${modifiedTitlelineContent}" "${inputFile}"
     done
 
-    bash "${0}" "${inputFile}" 'ta'
+    displayLastTree
     exit 0
 
   }
@@ -620,7 +620,7 @@
 
     sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
 
-    bash "${0}" "${inputFile}" 't'
+    displayLastTree
     exit 0
   }
 
@@ -651,7 +651,7 @@
 
     sed -i "${targetLineNo} c ${modifiedTitlelineContent}" "${inputFile}"
 
-    bash "${0}" "${inputFile}" 'ta'
+    displayLastTree
     exit 0
   }
 
@@ -686,7 +686,7 @@
       sed -i "${tgtLine}c ${modifiedTitlelineContent}" "${inputFile}"
     done
 
-    bash "${0}" "${inputFile}" 'ta'
+    displayLastTree
     exit 0
 
   }
@@ -865,7 +865,7 @@
 
     cat "${inputFile}" | sed -sn "${startLineSelectGroup},${endLineSelectGroup}p" > "${tmpfileTarget}"
     "${selected_viewer}" "${tmpfileTarget}"
-    bash "${0}" "${inputFile}" 't'
+    displayLastTree
     exit 0
   }
 }
@@ -914,6 +914,27 @@
 
 : "ツリー表示系" && {
   ##############################################################################
+  # コマンド実行後のツリー表示復帰用。直前に発行されたツリーコマンドを発行する
+  ##############################################################################
+  function displayLastTree {
+    case "${previousTreeCommand}" in
+      't')  bash "${0}" "${inputFile}" "${previousTreeCommand}" "${previousHideFlag}"
+            ;;
+      'tl') bash "${0}" "${inputFile}" "${previousTreeCommand}" "${previousHideFlag}"
+            ;;
+      'ta') bash "${0}" "${inputFile}" "${previousTreeCommand}" "${previousHideFlag}"
+            ;;
+      'f')  bash "${0}" "${inputFile}" "${previousTreeCommand}" "${previousIndexNo}" "${previousHideFlag}"
+            ;;
+      'fl') bash "${0}" "${inputFile}" "${previousTreeCommand}" "${previousIndexNo}" "${previousHideFlag}"
+            ;;
+      'fa') bash "${0}" "${inputFile}" "${previousTreeCommand}" "${previousIndexNo}" "${previousHideFlag}"
+            ;;
+      *) ;;
+    esac
+  }
+
+  ##############################################################################
   # ツリー表示する
   # t:通常ツリー
   # tl:開始行番号付きツリー表示
@@ -921,6 +942,7 @@
   # 先頭から末尾を指定してツリービューを呼び出すラッパー
   ##############################################################################
   function displayTree {
+
     local indexNoToOption="${indexNo}"
     local indexNo=''
     tree 1 "${maxNodeCnt}" "${indexNoToOption}" "${allCharCount}"
@@ -956,6 +978,8 @@
     local endNodeSelectGroup="${2}"
     local hiddenOption="${3}"
     local allCharCount="${4}"
+
+    savePrevTreeCmd "${action}" "${indexNo}" "${hiddenOption}"
 
     printf "【$(basename ${inputFile})】合計${allCharCount}文字"
     
@@ -1150,7 +1174,7 @@
             ;;
     esac
 
-    bash "${0}" "${inputFile}" 't'
+    displayLastTree
     exit 0
   }
 }
@@ -1197,7 +1221,7 @@
   ##############################################################################
   function insertNode {    
     insert
-    bash "${0}" "${inputFile}" 't'
+    displayLastTree
     exit 0
   }
 }
@@ -1221,7 +1245,7 @@
             ;;
     esac
 
-    bash "${0}" "${inputFile}" 'ta'
+    displayLastTree
     exit 0
 
   }
@@ -1326,7 +1350,7 @@
             ;;
     esac
 
-    bash "${0}" "${inputFile}" 't'
+    displayLastTree
     exit 0
   }
 }
@@ -1362,7 +1386,7 @@
             ;;
     esac
 
-    bash "${0}" "${inputFile}" 'ta'
+    displayLastTree
     exit 0
 
   }
@@ -1402,7 +1426,7 @@
       if [[ "${?}" -ne 0 ]] ; then
         echo '交換移動可能なグループがありません'
         read -s -n 1 c
-        bash "${0}" "${inputFile}" 't'
+        displayLastTree
         exit 0
       else
         local targetNodeArray=($targetNodeLineFromTo)
@@ -1484,7 +1508,7 @@
     )
 
     cat "${tmpfile1}" "${tmpfile2}" > "${inputFile}"
-    bash "${0}" "${inputFile}" 't'
+    displayLastTree
     exit 0
 
   }
@@ -1526,7 +1550,7 @@
 
     cat "${tmpfileHeader}" "${tmpfileFooter}" > "${inputFile}"
 
-    bash "${0}" "${inputFile}" 't'
+    displayLastTree
     exit 0
   }
 }
@@ -1541,7 +1565,7 @@
 
     local tgtLine="$( echo ${nodeStartLines[${indexNo}]} )"
     sed -i "${tgtLine}d" "${inputFile}"
-    bash "${0}" "${inputFile}" 't'
+    displayLastTree
     exit 0
   }
 
@@ -1599,7 +1623,7 @@
     
     cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileFooter}" > "${inputFile}"
 
-    bash "${0}" "${inputFile}" 't'
+    displayLastTree
     exit 0
   }
 }
@@ -1625,6 +1649,56 @@
   }
 }
 
+: "前回使用tree系コマンド保持関数" && {
+  ##############################################################################
+  # 前回使用tree系コマンド保持関数
+  # 引数1:保持するコマンド(t,tl,ta,f,fl,fa)のみ想定
+  # 引数2:保持するノード番号
+  # 引数3:保持する不可視オプション
+  # 想定外のコマンドを渡された場合、エラーとせず読み捨てる
+  ##############################################################################
+  function savePrevTreeCmd {
+    local lastTreeCommand="${1}"
+    local lastIndexNo="${2}"
+    local lastHideFlag="${3}"
+
+    local SCRIPT_DIR="$(cd $(dirname ${0}); pwd)"
+	  local SCRIPT_PATH="${SCRIPT_DIR}/${0}"
+
+    local replaceFrom=''
+	  local replaceToTmp=''
+	  local replaceTo=''
+
+    ##ツリー系コマンドの保持
+    replaceFrom=$(grep -E "^ *readonly previousTreeCommand=" "${SCRIPT_PATH}")
+	  replaceToTmp=$(echo "${replaceFrom}" | grep -oE "'[^']{1,2}'")
+	  replaceTo="${replaceFrom/${replaceToTmp}/\'${lastTreeCommand}\'}"
+
+    sed -i "s/${replaceFrom}/${replaceTo}/" "${SCRIPT_PATH}"
+
+    ##ノード番号の保持
+    if [[ "${lastTreeCommand}" =~ (f|fl|fa) ]] ; then
+      replaceFrom=$(grep -E "^ *readonly previousIndexNo=" "${SCRIPT_PATH}")
+      replaceToTmp=$(echo "${replaceFrom}" | grep -oE "'[0-9]*'")
+      replaceTo="${replaceFrom/${replaceToTmp}/\'${lastIndexNo}\'}"
+    else
+      replaceFrom=$(grep -E "^ *readonly previousIndexNo=" "${SCRIPT_PATH}")
+      replaceToTmp=$(echo "${replaceFrom}" | grep -oE "'[0-9]*'")
+      replaceTo="${replaceFrom/${replaceToTmp}/\'${lastIndexNo}\'}"
+    fi
+
+    sed -i "s/${replaceFrom}/${replaceTo}/" "${SCRIPT_PATH}"
+
+    ##不可視オプションの保持
+    replaceFrom=$(grep -E "^ *readonly previousHideFlag=" "${SCRIPT_PATH}")
+    replaceToTmp=$(echo "${replaceFrom}" | grep -oE "'.*'")
+    replaceTo="${replaceFrom/${replaceToTmp}/\'${lastHideFlag}\'}"
+
+    sed -i "s/${replaceFrom}/${replaceTo}/" "${SCRIPT_PATH}"
+
+  }
+}
+
 : "初期処理" && {
   ##############################################################################
   # 初期処理
@@ -1646,7 +1720,7 @@
         sed -i "1i# 1st Node [,,]" "${inputFile}"
       fi
       read -s -n 1 c
-      bash "${0}" "${inputFile}" 't'
+      displayLastTree
       exit 0
     fi
 
@@ -1696,7 +1770,7 @@
     if [[ ${#action} = 0 ]] ; then
       echo "動作指定がないためツリー表示します"
       read -s -n 1 c
-      bash "${0}" "${inputFile}" 't'
+      displayLastTree
       exit 0
     fi
 
@@ -1709,7 +1783,7 @@
     fi
 
     if [[ -f ${inputFile} ]] && [[ ${#action} = 0 ]] ; then
-      bash "${0}" "${inputFile}" 't'
+      displayLastTree
       exit 0
     fi
 
@@ -1867,13 +1941,17 @@
     indexNo="${3}"
     option="${4}"
 
+    readonly previousTreeCommand='ta'
+    readonly previousIndexNo=''
+    readonly previousHideFlag=''
+
     #対象ファイルの存在チェック
     if [[ ! -f ${inputFile} ]] ; then
       echo "${inputFile} というファイルは存在しません。"
       read -p "${inputFile} を作成しますか？(y/n) :" YN
       if [ "${YN}" = "y" ]; then
         touch "${inputFile}"
-        bash "${0}" "${inputFile}" 't'
+        displayLastTree
         exit 0
       else
         echo "終了します"
