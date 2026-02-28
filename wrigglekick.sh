@@ -483,7 +483,7 @@
       if [[ ${i} -ne ${maxNodeCnt} ]]; then
         nextEntry="${indexlist[${i}]}"
         nextStartLine="${nextEntry%%:*}"
-        endLine=$((nextStartLine - 1))
+        endLine=$(( ${nextStartLine} - 1 ))
       else
         endLine="${maxLineCnt}"
       fi
@@ -1238,9 +1238,9 @@
     tgtLine="$(getLineNo ${indexNo} 1 )"
 
     case "${char2}" in
-      'l')  sed -i -e "$tgtLine s/^##/#/g" "${inputFile}"
+      'l')  sed -i -e "${tgtLine} s/^##/#/g" "${inputFile}"
             ;;
-      'r')  sed -i -e "$tgtLine s/^/#/g" "${inputFile}"
+      'r')  sed -i -e "${tgtLine} s/^/#/g" "${inputFile}"
             ;;
       *)    echo 'err'
             exit 9
@@ -1365,7 +1365,7 @@
   function slideGroup {
 
     local SelectGroupNodeFromTo="$( getNodeNoInGroup ${indexNo} '' )"
-    local selectGroupArray=($SelectGroupNodeFromTo)
+    local selectGroupArray=(${SelectGroupNodeFromTo})
     local startNodeSelectGroup="${selectGroupArray[0]}"
     local endNodeSelectGroup="${selectGroupArray[1]}"
 
@@ -1707,6 +1707,9 @@
   ##############################################################################
   function myInit {
 
+    # ノード行の自動補正
+    sanitizeNodeLines
+
     #横幅取得
     maxRowLength="$( tput cols )"
 
@@ -1924,6 +1927,37 @@
     tmpfileFooter=$(mktemp)
     tmpfile1=$(mktemp)
     tmpfile2=$(mktemp)
+  }
+}
+
+: "ファイル内容補正" && {
+  ##############################################################################
+  # ノード行の自動補正
+  # '#'で始まる行がノードメタ情報('[*,*,*]')を持たない場合に、
+  # デフォルト値を追記してファイルを上書きする。
+  # 引数:なし(グローバル変数`inputFile`を参照)
+  ##############################################################################
+  function sanitizeNodeLines {
+    local tmp_sanitized_file
+    tmp_sanitized_file=$(mktemp)
+
+    local file_modified=false
+    # ファイルを一行ずつ読み込み、正規化が必要かチェック
+    while IFS= read -r line || [ -n "$line" ]; do
+      # 行が '#' で始まり、'[*,*,*]' のような属性で終わらない場合
+      if [[ "$line" == '#'* ]] && [[ ! "$line" =~ \[.*,.*,.*\]$ ]]; then
+        echo "${line} [0,,0]"
+        file_modified=true
+      else
+        echo "$line"
+      fi
+    done < "${inputFile}" > "$tmp_sanitized_file"
+
+    if [ "$file_modified" = true ]; then
+      mv "$tmp_sanitized_file" "${inputFile}"
+    else
+      rm "$tmp_sanitized_file"
+    fi
   }
 }
 
