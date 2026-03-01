@@ -1845,7 +1845,7 @@
     fi
 
     unset allowActionList
-    allowActionList=('h' 'gh' 'e' 'd' 'gd' 'i' 'ie' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'k' 'gk' 'gc' 's' 'o')
+    allowActionList=('h' 'gh' 'e' 'd' 'gd' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'k' 'gk' 'gc' 's' 'o')
     if arrayContains "${action}" "${allowActionList[@]}"; then
       if [[ ${indexNo} = '' ]] ; then
         echo "ノードを指定してください"
