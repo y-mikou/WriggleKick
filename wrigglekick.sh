@@ -1109,6 +1109,8 @@
       cat "${inputFile}" \
     | sed -n "${startLineSelectGroup},${endLineSelectGroup}p" \
     | sed '/^\/\//d' \
+    | sed '/^##*/s/\[[^]]*\]//g' \
+    | sed 's/^\(##*\)\t/\1 /' \
     > "${outputFile}"
     
     echo "ノード範囲を出力しました: ${outputFile}"
