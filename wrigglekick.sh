@@ -1189,6 +1189,10 @@
   # 引数:なし(グローバルのみ)
   ##############################################################################
   function insert {
+    if [[ -z "${indexNo}" ]] ; then
+      indexNo="${maxNodeCnt}"
+    fi
+
     nlString="${option:-名称未設定}"
     endLinePreviousNode="$( getLineNo ${indexNo} 9 )"
     startLineNextNode="$(   getLineNo $(( ${indexNo} +1 )) 1 )"
@@ -1978,6 +1982,13 @@
     action="${2}"
     indexNo="${3}"
     option="${4}"
+
+    if [[ "${action}" == "i" ]] || [[ "${action}" == "ie" ]]; then
+      if ! [[ "${indexNo}" =~ ^[0-9]+$ ]] && [[ -n "${indexNo}" ]]; then
+        option="${indexNo}"
+        indexNo=""
+      fi
+    fi
 
     readonly previousTreeCommand='ta'
     readonly previousIndexNo=''
