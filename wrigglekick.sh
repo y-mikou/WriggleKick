@@ -854,7 +854,55 @@
   }
 }
 
-: "配下ノード閲覧コマンド" && {
+: "ノード閲覧コマンド" && {
+
+  ##############################################################################
+  # v:対象のノードを閲覧する
+  ##############################################################################
+  function viewNode {
+
+    selectNodeLineFromTo="$( getLineNo ${indexNo} '' )"
+    local selectNodeArray=($selectNodeLineFromTo)
+    startLineSelectNode="${selectNodeArray[0]}"
+    endLineSelectNode="${selectNodeArray[1]}"
+
+    endLineHeader="$(( ${startLineSelectNode} -1 ))"
+    startLineFooter="$(( ${endLineSelectNode} +1 ))"
+
+    (
+      if [[ ${indexNo} -eq 1 ]]; then
+        printf '' > "${tmpfileHeader}"
+      else
+        cat "${inputFile}" | { head -n "${endLineHeader}" > "${tmpfileHeader}"; cat >/dev/null;}
+      fi
+      wait
+    )
+    (
+      if [[ ${indexNo} -eq 1 ]] ; then
+        cat "${inputFile}" | { sed -n "1, ${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
+      else
+        if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
+          cat "${inputFile}" | { tail -n +${startLineSelectNode}  > "${tmpfileSelect}"; cat >/dev/null;}
+        else
+          cat "${inputFile}" | { sed -n "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
+        fi
+      fi
+      wait
+    )
+    (
+      if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
+        printf '' > "${tmpfileFooter}"
+      else
+        tail -n +"${startLineFooter}" "${inputFile}" > "${tmpfileFooter}"
+      fi
+      wait
+    )
+
+    "${selected_viewer}" "${tmpfileSelect}"
+    displayLastTree
+    exit 0
+  }
+
   ##############################################################################
   # 選択ノードから、下方向に選択ノードよりも深さが深い限り続くノード範囲を対象に、閲覧する
   # 引数:なし(グローバルのみ)
@@ -1116,6 +1164,59 @@
     echo "ノード範囲を出力しました: ${outputFile}"
     exit 0
   }
+}
+
+: "ノード編集コマンド" && {
+  ##############################################################################
+  # e:対象のノードを編集する
+  ##############################################################################
+  function editNode {
+
+    selectNodeLineFromTo="$( getLineNo ${indexNo} '' )"
+    local selectNodeArray=($selectNodeLineFromTo)
+    startLineSelectNode="${selectNodeArray[0]}"
+    endLineSelectNode="${selectNodeArray[1]}"
+
+    endLineHeader="$(( ${startLineSelectNode} -1 ))"
+    startLineFooter="$(( ${endLineSelectNode} +1 ))"
+
+    (
+      if [[ ${indexNo} -eq 1 ]]; then
+        printf '' > "${tmpfileHeader}"
+      else
+        cat "${inputFile}" | { head -n "${endLineHeader}" > "${tmpfileHeader}"; cat >/dev/null;}
+      fi
+      wait
+    )
+    (
+      if [[ ${indexNo} -eq 1 ]] ; then
+        cat "${inputFile}" | { sed -n "1, ${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
+      else
+        if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
+          cat "${inputFile}" | { tail -n +${startLineSelectNode}  > "${tmpfileSelect}"; cat >/dev/null;}
+        else
+          cat "${inputFile}" | { sed -n "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
+        fi
+      fi
+      wait
+    )
+    (
+      if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
+        printf '' > "${tmpfileFooter}"
+      else
+        tail -n +"${startLineFooter}" "${inputFile}" > "${tmpfileFooter}"
+      fi
+      wait
+    )
+
+    "${selected_editor}" "${tmpfileSelect}"
+    wait
+    sed -i -e '$a\' "${tmpfileSelect}" #編集の結果末尾に改行がない場合'
+    cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileFooter}" > "${inputFile}"
+
+    exit 0
+  }
+
 }
 
 : "ノード削除・ノード編集・単一ノード閲覧コマンド" && {
@@ -1522,7 +1623,55 @@
   }
 }
 
-: "配下ノード削除コマンド" && {
+: "ノード削除コマンド" && {
+  ##############################################################################
+  # d:対象のノードを削除する
+  ##############################################################################
+  function deleteNode {
+
+    selectNodeLineFromTo="$( getLineNo ${indexNo} '' )"
+    local selectNodeArray=($selectNodeLineFromTo)
+    startLineSelectNode="${selectNodeArray[0]}"
+    endLineSelectNode="${selectNodeArray[1]}"
+
+    endLineHeader="$(( ${startLineSelectNode} -1 ))"
+    startLineFooter="$(( ${endLineSelectNode} +1 ))"
+
+    (
+      if [[ ${indexNo} -eq 1 ]]; then
+        printf '' > "${tmpfileHeader}"
+      else
+        cat "${inputFile}" | { head -n "${endLineHeader}" > "${tmpfileHeader}"; cat >/dev/null;}
+      fi
+      wait
+    )
+    (
+      if [[ ${indexNo} -eq 1 ]] ; then
+        cat "${inputFile}" | { sed -n "1, ${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
+      else
+        if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
+          cat "${inputFile}" | { tail -n +${startLineSelectNode}  > "${tmpfileSelect}"; cat >/dev/null;}
+        else
+          cat "${inputFile}" | { sed -n "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
+        fi
+      fi
+      wait
+    )
+    (
+      if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
+        printf '' > "${tmpfileFooter}"
+      else
+        tail -n +"${startLineFooter}" "${inputFile}" > "${tmpfileFooter}"
+      fi
+      wait
+    )
+
+    cat "${tmpfileHeader}" "${tmpfileFooter}" > "${inputFile}"
+
+    displayLastTree
+    exit 0
+  }
+
   ##############################################################################
   # 対象のノードとその配下を削除する
   # 引数:なし(グローバルのみ)
@@ -2043,6 +2192,13 @@
     char3="${action:2:1}"
 
     case "${char1}" in
+      'v')  clear
+            viewNode
+            ;;
+      'e')  editNode
+            ;;
+      'd')  deleteNode
+            ;;
       'o')  outputGroup "${option}"
             ;;
       's')  clear
@@ -2111,9 +2267,6 @@
                   ;;              
             esac
             ;;
-      [edv])  clear
-              singleNodeOperations
-              ;;
       *) ;;
     esac
   }  
