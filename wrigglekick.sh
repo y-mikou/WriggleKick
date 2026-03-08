@@ -1172,16 +1172,25 @@
   ##############################################################################
   function editNode {
 
-    selectNodeLineFromTo="$( getLineNo ${indexNo} '' )"
-    local selectNodeArray=($selectNodeLineFromTo)
-    startLineSelectNode="${selectNodeArray[0]}"
-    endLineSelectNode="${selectNodeArray[1]}"
+    if [[ -n "${option}" ]]; then
+        startLineSelectNode="$( getLineNo ${indexNo} 1 )"
+        if [[ "${option}" == "-" ]]; then
+            endLineSelectNode="${maxLineCnt}"
+        else
+            endLineSelectNode="$( getLineNo ${option} 9 )"
+        fi
+    else
+        selectNodeLineFromTo="$( getLineNo ${indexNo} '' )"
+        local selectNodeArray=($selectNodeLineFromTo)
+        startLineSelectNode="${selectNodeArray[0]}"
+        endLineSelectNode="${selectNodeArray[1]}"
+    fi
 
     endLineHeader="$(( ${startLineSelectNode} -1 ))"
     startLineFooter="$(( ${endLineSelectNode} +1 ))"
 
     (
-      if [[ ${indexNo} -eq 1 ]]; then
+      if [[ ${startLineSelectNode} -eq 1 ]]; then
         printf '' > "${tmpfileHeader}"
       else
         cat "${inputFile}" | { head -n "${endLineHeader}" > "${tmpfileHeader}"; cat >/dev/null;}
@@ -1189,10 +1198,10 @@
       wait
     )
     (
-      if [[ ${indexNo} -eq 1 ]] ; then
+      if [[ ${startLineSelectNode} -eq 1 ]] ; then
         cat "${inputFile}" | { sed -n "1, ${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
       else
-        if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
+        if [[ ${endLineSelectNode} -eq ${maxLineCnt} ]] ; then
           cat "${inputFile}" | { tail -n +${startLineSelectNode}  > "${tmpfileSelect}"; cat >/dev/null;}
         else
           cat "${inputFile}" | { sed -n "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
@@ -1201,7 +1210,7 @@
       wait
     )
     (
-      if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
+      if [[ ${endLineSelectNode} -eq ${maxLineCnt} ]] ; then
         printf '' > "${tmpfileFooter}"
       else
         tail -n +"${startLineFooter}" "${inputFile}" > "${tmpfileFooter}"
@@ -1217,71 +1226,6 @@
     exit 0
   }
 
-}
-
-: "ノード削除・ノード編集・単一ノード閲覧コマンド" && {
-  ##############################################################################
-  # d:対象のノードを削除する
-  # e:対象のノードを編集する
-  # v:対象のノードを閲覧する
-  ##############################################################################
-  function singleNodeOperations {
-
-    selectNodeLineFromTo="$( getLineNo ${indexNo} '' )"
-    local selectNodeArray=($selectNodeLineFromTo)
-    startLineSelectNode="${selectNodeArray[0]}"
-    endLineSelectNode="${selectNodeArray[1]}"
-
-    endLineHeader="$(( ${startLineSelectNode} -1 ))"
-    startLineFooter="$(( ${endLineSelectNode} +1 ))"
-
-    (
-      if [[ ${indexNo} -eq 1 ]]; then
-        printf '' > "${tmpfileHeader}"
-      else
-        cat "${inputFile}" | { head -n "${endLineHeader}" > "${tmpfileHeader}"; cat >/dev/null;}
-      fi
-      wait
-    )
-    (
-      if [[ ${indexNo} -eq 1 ]] ; then
-        cat "${inputFile}" | { sed -n "1, ${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
-      else
-        if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
-          cat "${inputFile}" | { tail -n +${startLineSelectNode}  > "${tmpfileSelect}"; cat >/dev/null;}
-        else
-          cat "${inputFile}" | { sed -n "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
-        fi
-      fi
-      wait
-    )
-    (
-      if [[ ${indexNo} -eq ${maxNodeCnt} ]] ; then
-        printf '' > "${tmpfileFooter}"
-      else
-        tail -n +"${startLineFooter}" "${inputFile}" > "${tmpfileFooter}"
-      fi
-      wait
-    )
-
-    case "${action}" in
-      'e')  "${selected_editor}" "${tmpfileSelect}"
-            wait
-            sed -i -e '$a\' "${tmpfileSelect}" #編集の結果末尾に改行がない場合'
-            cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileFooter}" > "${inputFile}"
-            ;;
-      'd')  cat "${tmpfileHeader}" "${tmpfileFooter}" > "${inputFile}"
-            ;;
-      'v')  "${selected_viewer}" "${tmpfileSelect}"
-            ;;
-      *)    echo '不正な引数です。'
-            exit 9
-            ;;
-    esac
-
-    displayLastTree
-    exit 0
-  }
 }
 
 : "ノード挿入コマンド" && {
@@ -2157,7 +2101,7 @@
       fi
     fi
 
-    readonly previousTreeCommand='ta'
+    readonly previousTreeCommand='tl'
     readonly previousIndexNo=''
     readonly previousHideFlag=''
 
