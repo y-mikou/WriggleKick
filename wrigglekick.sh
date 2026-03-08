@@ -1952,7 +1952,7 @@
     while IFS= read -r line || [ -n "$line" ]; do
       # 行が '#' で始まり、'[*,*,*]' のような属性で終わらない場合
       if [[ "$line" == '#'* ]] && [[ ! "$line" =~ \[.*,.*,.*\]$ ]]; then
-        echo "${line} [0,,0]"
+        echo "${line} [,,]"
         file_modified=true
       else
         echo "$line"
