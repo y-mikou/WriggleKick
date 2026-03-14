@@ -1223,9 +1223,9 @@
     sed -i -e '$a\' "${tmpfileSelect}" #編集の結果末尾に改行がない場合'
     cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileFooter}" > "${inputFile}"
 
+    displayLastTree
     exit 0
   }
-
 }
 
 : "ノード挿入コマンド" && {
