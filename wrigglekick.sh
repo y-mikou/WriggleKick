@@ -10,6 +10,11 @@
                   #^^^^^^^^^^^^^^^ここにお好みのビューワー呼び出しコマンドを設定してください
                   #ビューワとしてlessなどの編集モードを持つものを指定しても、閲覧のみが可能です。
                   #当ツールのv系コマンド(ノードの編集なし閲覧)でのファイルの編集内容は反映されません。
+
+  ##############################################################################
+  #編集モードで開く際の拡張行数
+  ##############################################################################
+  edit_mode_extend_lines=0 #0で拡張なし
 }
 
 : "ヘルプ表示" && {
@@ -1172,18 +1177,39 @@
   ##############################################################################
   function editNode {
 
+    local originalStartLine
+    local originalEndLine
     if [[ -n "${option}" ]]; then
-        startLineSelectNode="$( getLineNo ${indexNo} 1 )"
+        originalStartLine="$( getLineNo ${indexNo} 1 )"
         if [[ "${option}" == "-" ]]; then
-            endLineSelectNode="${maxLineCnt}"
+            originalEndLine="${maxLineCnt}"
         else
-            endLineSelectNode="$( getLineNo ${option} 9 )"
+            originalEndLine="$( getLineNo ${option} 9 )"
         fi
     else
-        selectNodeLineFromTo="$( getLineNo ${indexNo} '' )"
+        local selectNodeLineFromTo="$( getLineNo ${indexNo} '' )"
         local selectNodeArray=($selectNodeLineFromTo)
-        startLineSelectNode="${selectNodeArray[0]}"
-        endLineSelectNode="${selectNodeArray[1]}"
+        originalStartLine="${selectNodeArray[0]}"
+        originalEndLine="${selectNodeArray[1]}"
+    fi
+
+    # エディタ用に範囲を前後に拡張する
+    if [[ ${originalStartLine} -le 1 ]]; then
+        startLineSelectNode=1
+    else
+        startLineSelectNode=$(( originalStartLine - edit_mode_extend_lines ))
+        if [[ ${startLineSelectNode} -lt 1 ]]; then
+            startLineSelectNode=1
+        fi
+    fi
+
+    if [[ ${originalEndLine} -ge ${maxLineCnt} ]]; then
+        endLineSelectNode=${maxLineCnt}
+    else
+        endLineSelectNode=$(( originalEndLine + edit_mode_extend_lines ))
+        if [[ ${endLineSelectNode} -gt ${maxLineCnt} ]]; then
+            endLineSelectNode=${maxLineCnt}
+        fi
     fi
 
     endLineHeader="$(( ${startLineSelectNode} -1 ))"
@@ -1198,19 +1224,12 @@
       wait
     )
     (
-      if [[ ${startLineSelectNode} -eq 1 ]] ; then
-        cat "${inputFile}" | { sed -n "1, ${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
-      else
-        if [[ ${endLineSelectNode} -eq ${maxLineCnt} ]] ; then
-          cat "${inputFile}" | { tail -n +${startLineSelectNode}  > "${tmpfileSelect}"; cat >/dev/null;}
-        else
-          cat "${inputFile}" | { sed -n "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
-        fi
-      fi
+      # 以前の複雑な条件分岐を単純化
+      cat "${inputFile}" | { sed -n "${startLineSelectNode},${endLineSelectNode}p" > "${tmpfileSelect}"; cat >/dev/null;}
       wait
     )
     (
-      if [[ ${endLineSelectNode} -eq ${maxLineCnt} ]] ; then
+      if [[ ${endLineSelectNode} -ge ${maxLineCnt} ]] ; then
         printf '' > "${tmpfileFooter}"
       else
         tail -n +"${startLineFooter}" "${inputFile}" > "${tmpfileFooter}"
