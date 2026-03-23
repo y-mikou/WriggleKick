@@ -972,6 +972,7 @@
   # コマンド実行後のツリー表示復帰用。直前に発行されたツリーコマンドを発行する
   ##############################################################################
   function displayLastTree {
+    clear
     case "${previousTreeCommand}" in
       't')  bash "${0}" "${inputFile}" "${previousTreeCommand}" "${previousHideFlag}"
             ;;
@@ -2154,83 +2155,90 @@
     char2="${action:1:1}"
     char3="${action:2:1}"
 
-    case "${char1}" in
-      'v')  clear
-            viewNode
-            ;;
-      'e')  editNode
-            ;;
-      'd')  deleteNode
-            ;;
-      'o')  outputGroup "${option}"
-            ;;
-      's')  clear
-            setSymbol
-            ;;
-      'j')  clear
-            joinNode
-            ;;
-      'k')  clear
-            switchProgress
-            ;;
-      'h')  clear
-            setHideFlag
-            ;;
-      't')  clear
-            displayTree
-            ;;
-      'm')  case "${char2}" in 
-              [ud]) clear
-                    swapNode
-                    ;;
-              [lr]) clear
-                    slideNode
-                    ;;
-              *)  echo 'err'
-                  ;;
-            esac
-            ;;
-      'g')  case "${char2}" in 
-              'v')  clear
-                    groupView
-                    ;;
-              'c')  dispGroupCharCount
-                    ;;
-              'k')  setProgressGroup
-                    ;;
-              'd')  deleteGroup
-                    ;;
-              'j')  joinGroup
-                    ;;
-              'h')  hideGroup
-                    ;;
-              *)  case "${char3}" in 
-                    [ud]) clear
-                          swapGroup
-                          ;;
-                    [lr]) clear
-                          slideGroup
-                          ;;
-                    [lr]) clear
-                          slideGroup
-                          ;;
-                    *)  echo 'err'
-                        ;;
-                  esac
-            esac
-            ;;
-      'f')  clear
-            focusMode
-            ;;
-      'i')  clear
-            case "${char2}" in
-              '') insertNode
-                  ;;
-              'e') insertEdit
-                  ;;              
-            esac
-            ;;
-      *) ;;
+    case "${action}" in
+      t|tl|ta)
+        clear
+        displayTree
+        ;;
+      f|fl|fa)
+        clear
+        focusMode
+        ;;
+      v)
+        clear
+        viewNode
+        ;;
+      gv)
+        clear
+        groupView
+        ;;
+      e)
+        editNode
+        ;;
+      d)
+        deleteNode
+        ;;
+      gd)
+        deleteGroup
+        ;;
+      o)
+        outputGroup "${option}"
+        ;;
+      s)
+        clear
+        setSymbol
+        ;;
+      j)
+        clear
+        joinNode
+        ;;
+      gj)
+        joinGroup
+        ;;
+      k)
+        clear
+        switchProgress
+        ;;
+      gk)
+        setProgressGroup
+        ;;
+      h)
+        clear
+        setHideFlag
+        ;;
+      gh)
+        hideGroup
+        ;;
+      gc)
+        dispGroupCharCount
+        ;;
+      i)
+        clear
+        insertNode
+        ;;
+      ie)
+        clear
+        insertEdit
+        ;;
+      mu|md)
+        clear
+        swapNode
+        ;;
+      ml|mr)
+        clear
+        slideNode
+        ;;
+      gmu|gmd)
+        clear
+        swapGroup
+        ;;
+      gml|gmr)
+        clear
+        slideGroup
+        ;;
+      *)
+        # known actions are handled, no error for unknown
+        ;;
     esac
   }  
 }
