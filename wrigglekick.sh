@@ -371,15 +371,19 @@
   function help-e {
     clear
     echo '■e系コマンド ヘルプ'
-    echo '書式: (bash) wrigglekick.sh [対象ファイル] (e) [対象ノード番号]'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] (e) [対象ノード番号] [終了ノード番号]'
     echo ''
-    echo 'e系コマンド([v]iew)には、他にはファミリーはありません。'
+    echo 'e系コマンド([e]dit)には、他にはファミリーはありません。'
     echo ''
     echo 'eコマンドのみ、コマンド自体を省略できます。即ち'
     echo '(bash) wrigglekick.sh [対象ファイル] [対象ノード番号]'
     echo 'と表記した場合には、それはeコマンドとみなします。'
     echo ''
     echo 'e系コマンドは対象ファイルの指定ノードをエディタへ渡します。'
+    echo '終了ノード番号を指定した場合には、対象ノードから終了ノードの範囲全体をエディタへ渡します。'
+    echo '更に、当スクリプト冒頭の変数「edit_mode_extend_lines」の値が0以外の場合、'
+    echo 'その値の行数だけ前後に拡大した範囲をエディタへ渡します。'
+    echo ''
     echo '当スクリプトでは、編集は稼働する環境にあるテキストエディタを呼び出す形で実現されます。'
     echo '当スクリプト冒頭の変数「selected_editor」の値を、任意のエディタ呼び出しコマンド(例えばviなど)に置き換えてください。'
     echo '指定がない場合、ms_edit > micro > nano > vi > ed の優先順で存在するものが使用されます。'
@@ -396,12 +400,12 @@
       'd'|'gd') help-d;;
       'j'|'gj') help-j;;
       'gc') help-gc;;
-      'k') help-k;;
-      'h') help-h;;
+      'k'|'gk') help-k;;
+      'h'|'gh') help-h;;
       's') help-s;;
-      'i'|'ie') help-e;;
+      'i'|'ie') help-i;;
       'o') help-o;;
-      'e') help-o;;
+      'e') help-e;;
       *) commandList;;
     esac
   }
