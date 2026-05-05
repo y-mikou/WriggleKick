@@ -49,10 +49,12 @@
     echo '　　　　　gh....対象ノードの配下ノードにまとめて不可視フラグを設定(1:不可視/0:可視)'
     echo '　　　　　i.....対象ノードの下に新規ノード挿入。追加引数としてノード名'
     echo '　　　　　ie....対象ノードの下に新規ノード挿入、即編集モードへ。追加引数としてノード名'
+    echo '　　　　　mt....対象ノードを、指定したノードの直後へ移動'
     echo '　　　　　mu....対象ノードひとつを上へ移動'
     echo '　　　　　md....対象ノードひとつを下へ移動'
     echo '　　　　　ml....対象ノードひとつを左へ移動(浅くする)'
     echo '　　　　　mr....対象ノードひとつを右へ移動(深くする)'
+    echo '　　　　　gmt...自分の配下ノードを引き連れて指定したノードの直後へ移動'
     echo '　　　　　gmu...自分の配下ノードを引き連れて上へ移動'
     echo '　　　　　gmd...自分の配下ノードを引き連れて下へ移動'
     echo '　　　　　gml...自分の配下ノードを引き連れて左へ移動(浅くする)'
@@ -168,6 +170,24 @@
     echo '→指定ノード=3のとき、グループは3〜4'
     echo '→指定ノード=2のとき、グループは2だけ'
     echo '→指定ノード=1のとき、グループは1〜4'
+  }
+  function help-mt {
+    clear
+    echo '■mtコマンド ヘルプ'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] mt [移動元ノード] [移動先ノード]'
+    echo ''
+    echo 'mt([m]ove [t]o)コマンドは、移動元ノード(単一)を、'
+    echo '移動先として指定したノードの直後(次のノード番号の位置)へ移動します。'
+    echo '移動元の配下ノードは一緒に移動しません。'
+  }
+  function help-gmt {
+    clear
+    echo '■gmtコマンド ヘルプ'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] gmt [移動元ノード] [移動先ノード]'
+    echo ''
+    echo 'gmt([g]roup [m]ove [t]o)コマンドは、移動元ノード(とその配下グループ)を、'
+    echo '移動先として指定したノードの直後(次のノード番号の位置)へ移動します。'
+    echo '移動元ノードの深さは維持され、移動先での自動調整は行われません。'
   }
   function help-m {
     clear
@@ -396,6 +416,8 @@
       'f'|'fl'|'fa') help-f;;
       'v'|'gv') help-v;;
       'm'|'mu'|'md'|'ml'|'mr') help-m;;
+      'mt') help-mt;;
+      'gmt') help-gmt;;
       'gm'|'gmu'|'gmd'|'gml'|'gmr') help-gm;;
       'd'|'gd') help-d;;
       'j'|'gj') help-j;;
@@ -1430,6 +1452,93 @@
     displayLastTree
     exit 0
   }
+
+  ##############################################################################
+  ##############################################################################
+  # 移動処理の共通ロジック
+  # 引数1:srcStartLine, 引数2:srcEndLine, 引数3:dstNode
+  ##############################################################################
+  function performMove {
+    local srcStartLine=$1
+    local srcEndLine=$2
+    local dstNode=$3
+    local dstEndLine=$(getLineNo ${dstNode} 9)
+
+    if [[ ${srcStartLine} -le ${dstEndLine} ]] && [[ ${srcEndLine} -ge ${dstEndLine} ]]; then
+        # 移動先が移動対象の範囲内に含まれる場合はエラー
+        return 1
+    fi
+
+    # 移動対象を一時ファイルに抽出
+    sed -n "${srcStartLine},${srcEndLine}p" "${inputFile}" > "${tmpfileSelect}"
+
+    if [[ ${srcStartLine} -lt ${dstEndLine} ]]; then
+      # 移動元が移動先より前にある場合
+      if [[ $((srcStartLine - 1)) -le 0 ]]; then printf '' > "${tmpfileHeader}"; else head -n $((srcStartLine - 1)) "${inputFile}" > "${tmpfileHeader}"; fi
+      sed -n "$((srcEndLine + 1)),${dstEndLine}p" "${inputFile}" > "${tmpfileTarget}"
+      tail -n +$((dstEndLine + 1)) "${inputFile}" > "${tmpfileFooter}"
+      cat "${tmpfileHeader}" "${tmpfileTarget}" "${tmpfileSelect}" "${tmpfileFooter}" > "${inputFile}"
+    else
+      # 移動先が移動元より前にある場合
+      head -n "${dstEndLine}" "${inputFile}" > "${tmpfileHeader}"
+      sed -n "$((dstEndLine + 1)),$((srcStartLine - 1))p" "${inputFile}" > "${tmpfileTarget}"
+      tail -n +$((srcEndLine + 1)) "${inputFile}" > "${tmpfileFooter}"
+      cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileTarget}" "${tmpfileFooter}" > "${inputFile}"
+    fi
+    return 0
+  }
+
+  ##############################################################################
+  # mt: 対象のノード単一を、指定したターゲットノードの直下へ移動する
+  ##############################################################################
+  function moveNodeTo {
+    local dstNode="${option}"
+    if [[ ! "${dstNode}" =~ ^[0-9]+$ ]] || [[ ${dstNode} -le 0 ]] || [[ ${dstNode} -gt ${maxNodeCnt} ]]; then
+      echo "移動先のノード番号(引数4)を正しく指定してください。"
+      read -s -n 1 c
+      return 1
+    fi
+    if [[ "${indexNo}" -eq "${dstNode}" ]]; then
+      displayLastTree
+      exit 0
+    fi
+    local srcStartLine=$(getLineNo ${indexNo} 1)
+    local srcEndLine=$(getLineNo ${indexNo} 9)
+
+    performMove "${srcStartLine}" "${srcEndLine}" "${dstNode}"
+    displayLastTree
+    exit 0
+  }
+
+  ##############################################################################
+  # gmt: 対象のグループを、指定したターゲットノードの直下へ移動する
+  ##############################################################################
+  function moveGroupTo {
+    local srcNode="${indexNo}"
+    local dstNode="${option}"
+
+    if [[ ! "${dstNode}" =~ ^[0-9]+$ ]] || [[ ${dstNode} -le 0 ]] || [[ ${dstNode} -gt ${maxNodeCnt} ]]; then
+      echo "移動先のノード番号(引数4)を正しく指定してください。"
+      read -s -n 1 c
+      return 1
+    fi
+
+    local srcGroupRange="$(getNodeNoInGroup ${srcNode} '')"
+    local srcStartNode=$(echo ${srcGroupRange} | cut -d ' ' -f 1)
+    local srcEndNode=$(echo ${srcGroupRange} | cut -d ' ' -f 2)
+
+    local srcStartLine=$(getLineNo ${srcStartNode} 1)
+    local srcEndLine=$(getLineNo ${srcEndNode} 9)
+
+    if ! performMove "${srcStartLine}" "${srcEndLine}" "${dstNode}"; then
+      echo "自分自身の配下(グループ内)には移動できません。"
+      read -s -n 1 c
+      return 1
+    fi
+
+    displayLastTree
+    exit 0
+  }
 }
 
 : "配下ノード深さ変更コマンド" && {
@@ -1941,7 +2050,7 @@
     ######################################
     #バックアップ作成
     ######################################
-    makeBackupActionList=('e' 'd' 'i' 'ie' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'c' 's')
+    makeBackupActionList=('e' 'd' 'i' 'ie' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'mt' 'gmt' 'c' 's')
     if arrayContains "${action}" "${makeBackupActionList[@]}"; then
       makeBackup
     fi
@@ -1957,7 +2066,7 @@
   function parameterCheck {
     
     #動作指定のチェック
-    allowActionList=('h' 'gh' 'e' 'd' 'gd' 'i' 'ie' 't' 'th' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'k' 'gk' 'gc' 's' 'o')
+    allowActionList=('h' 'gh' 'e' 'd' 'gd' 'i' 'ie' 't' 'th' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'mt' 'gmt' 'j' 'gj' 'k' 'gk' 'gc' 's' 'o')
     if ! arrayContains "${action}" "${allowActionList[@]}"; then
       echo '引数2:無効なアクションです'
       read -s -n 1 c
@@ -1965,7 +2074,7 @@
     fi
 
     unset allowActionList
-    allowActionList=('h' 'gh' 'e' 'd' 'gd' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'j' 'gj' 'k' 'gk' 'gc' 's' 'o')
+    allowActionList=('h' 'gh' 'e' 'd' 'gd' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'mt' 'gmt' 'j' 'gj' 'k' 'gk' 'gc' 's' 'o')
     if arrayContains "${action}" "${allowActionList[@]}"; then
       if [[ ${indexNo} = '' ]] ; then
         echo "ノードを指定してください"
@@ -2227,6 +2336,12 @@
       mu|md)
         clear
         swapNode
+        ;;
+      mt)
+        moveNodeTo
+        ;;
+      gmt)
+        moveGroupTo
         ;;
       ml|mr)
         clear
