@@ -57,8 +57,8 @@
     echo '　　　　　gmt...自分の配下ノードを引き連れて指定したノードの直後へ移動'
     echo '　　　　　gmu...自分の配下ノードを引き連れて上へ移動'
     echo '　　　　　gmd...自分の配下ノードを引き連れて下へ移動'
-    echo '　　　　　gml...自分の配下ノードを引き連れて左へ移動(浅くする)'
-    echo '　　　　　gmr...自分の配下ノードを引き連れて右へ移動(深くする)'
+    echo '　　　　　gml...自分の配下ノードを引き連れて左へ移動(浅くする)。追加引数で範囲。'
+    echo '　　　　　gmr...自分の配下ノードを引き連れて右へ移動(深くする)追加引数で範囲。'
     echo '　　　　　j.....指定ノードを、下のノードと結合'
     echo '　　　　　gj....自分の配下ノードを、自分に統合'
     echo '　　　　　k.....指定ノードの済/未マークを切り替える'
@@ -66,6 +66,7 @@
     echo '　　　　　gc....自分の配下ノードを含んだ文字数を通知する'
     echo '　　　　　s.....指定ノードに表示シンボルを設定する。追加引数でシンボルを指定(1文字)'
     echo '　　　　　o.....自分の配下ノードを含んだ範囲を別ファイル出力する。追加引数で出力ファイル名'
+    echo '　　　　　cp....指定ノードを自身の直後へコピー（単一ノードのみ）。追加引数は禁止'
     echo '　　　　　数字...対象ノードを編集(eと引数3を省略)'
     echo '　引数3:動作対象ノード番号/ノード指定の無い動作ではオプション'
     echo '　引数4:動作指定ごとに必要なオプション'
@@ -192,7 +193,7 @@
   function help-m {
     clear
     echo '■m系コマンド ヘルプ'
-    echo '書式: (bash) wrigglekick.sh [対象ファイル] mu/ml/md/mr [対象ノード番号]'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] mu/ml/md/mr [対象ノード番号] ([終了ノード番号])'
     echo ''
     echo 'm系コマンド([m]ove)には、mu([m]ove [u]p)、md([m]ove [d]own)、ml([m]ove [l]eft)、mr([m]ove [r]ight)のファミリーがあります。'
     echo ''
@@ -200,6 +201,10 @@
     echo ''
     echo 'ml([m]ove [l]eft)コマンドは、指定のノードを、一つ左に移動します。つまり、深さを一つ浅くします。'
     echo 'mr([m]ove [r]ight)コマンドは、指定のノードを、一つ右に移動します。つまり、深さを一つ深くします。'
+    echo ''
+    echo '【範囲指定】ml/mr は第2引数に終了ノード番号を与えることで、指定ノード〜終了ノードまでの範囲をまとめて左右にスライドできます。'
+    echo '  - 終了ノード番号は開始ノード番号以上でなければなりません。小さい場合はエラーとなります。'
+    echo '  - 開始と終了が同じ場合は単一ノードと同等に扱われます（縮退動作）。'
     echo 'mu([m]ove [u]p)コマンドは、指定のノードを、一つ上に移動します。つまり、一つ上のノードと入れ替えます。'
     echo 'md([m]ove [d]own)コマンドは、指定のノードを、一つ下に移動します。つまり、一つ下のノードと入れ替えます。'
     echo ''
@@ -409,6 +414,19 @@
     echo '指定がない場合、ms_edit > micro > nano > vi > ed の優先順で存在するものが使用されます。'
   }
 
+  function help-cp {
+    clear
+    echo '■cpコマンド ヘルプ'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] cp [対象ノード番号]'
+    echo ''
+    echo 'cpコマンドは、指定した**単一ノード**のタイトル行とその直後に続く非ヘッダ行のみを複製し、複製ブロックを元のノードの直後に挿入します。'
+    echo '複製されたノードのタイトルは「元タイトルのコピー [進捗,記号,不可視]」という形式になります。'
+    echo ''
+    echo '注意事項:'
+    echo ' - 第2引数（終了ノード番号）は受け取りません。与えた場合はエラーになります。'
+    echo ' - 指定ノードの配下（子ノード）は複製されません。'
+  }
+
   function displayHelp {
     local command="${1}"
     case "${command}" in
@@ -416,6 +434,7 @@
       'f'|'fl'|'fa') help-f;;
       'v'|'gv') help-v;;
       'm'|'mu'|'md'|'ml'|'mr') help-m;;
+      'cp') help-cp;;
       'mt') help-mt;;
       'gmt') help-gmt;;
       'gm'|'gmu'|'gmd'|'gml'|'gmr') help-gm;;
@@ -1144,7 +1163,8 @@
 
         printf "%s " "${symbols}"
 
-        echo "$( getNodeTitle ${cnt} )"
+        # ノードタイトルの先頭にノード番号とピリオドを付与
+        echo "${cnt}. $( getNodeTitle ${cnt} )"
 
       done
 
@@ -1332,6 +1352,46 @@
   ##############################################################################
   function slideNode {
 
+    # 第二引数(option)が指定された場合、範囲処理を行う
+    if [[ -n "${option}" ]] && [[ "${option}" =~ ^[0-9]+$ ]]; then
+      local startNode=${indexNo}
+      local endNode=${option}
+
+      if [[ ${endNode} -lt ${startNode} ]]; then
+        echo "範囲指定が不正です: 開始ノード(${startNode})より大きいノード番号を指定してください"
+        return 1
+      fi
+
+      # 同値の場合は縮退して単一ノード扱いにする
+      if [[ ${endNode} -eq ${startNode} ]]; then
+        # 続行して単一ノード処理へ
+        :
+      else
+        case "${char2}" in
+          'l')
+            for i in $(seq ${startNode} ${endNode}); do
+              tgtLine="$( getLineNo ${i} 1 )"
+              sed -i -e "${tgtLine} s/^##/#/g" "${inputFile}"
+            done
+            ;;
+          'r')
+            for i in $(seq ${startNode} ${endNode}); do
+              tgtLine="$( getLineNo ${i} 1 )"
+              sed -i -e "${tgtLine} s/^/#/g" "${inputFile}"
+            done
+            ;;
+          *)
+            echo 'err'
+            exit 9
+            ;;
+        esac
+
+        displayLastTree
+        exit 0
+      fi
+    fi
+
+    # 単一ノード処理 (既存動作)
     tgtLine="$(getLineNo ${indexNo} 1 )"
 
     case "${char2}" in
@@ -1862,6 +1922,80 @@
   }
 }
 
+: "ノードコピーコマンド" && {
+ ##############################################################################
+ # cp: 対象のノード(と配下)をコピーして自身の直後に挿入する
+ # 引数:なし(グローバルのみ)
+ ##############################################################################
+ function copyNode {
+
+  # 引数チェック: indexNo 必須、option は未指定であること
+  if [[ -z "${indexNo}" ]]; then
+    echo 'cp: ノード番号を指定してください'
+    read -s -n 1 c
+    return 1
+  fi
+  if [[ -n "${option}" ]]; then
+    echo 'cp: 第2引数は不要です'
+    read -s -n 1 c
+    return 1
+  fi
+
+  # コピー対象は単一ノードのみ: タイトル行と直後の非ヘッダ行を抽出
+  local selectNodeLineFromTo="$( getLineNo ${indexNo} '' )"
+  local selectNodeArray=(${selectNodeLineFromTo})
+  local startLineSelectNode=${selectNodeArray[0]}
+  local endLineSelectNode=${selectNodeArray[1]}
+
+  # タイトル行と、タイトル直後の'#'で始まる行が現れるまでの非ヘッダ行のみを抽出
+  sed -n "${startLineSelectNode},${endLineSelectNode}p" "${inputFile}" | awk 'NR==1{print; next} /^#/ {exit} {print}' > "${tmpfileSelect}"
+
+  # 先頭行(タイトル行)を書き換えて「のコピー」を付与
+  local titleLine
+  titleLine=$( sed -n '1p' "${tmpfileSelect}" )
+  local depth_markers
+  depth_markers="$( echo "${titleLine}" | sed -n 's/^\(#+\).*$/\1/p' )"
+  local withoutDepth
+  withoutDepth="${titleLine##*# }"
+  local title
+  title="${withoutDepth%%\[*}"
+  title="${title% }"
+  local progress
+  progress="$( parseMetadata "${withoutDepth}" 1 )"
+  local symbol
+  symbol="$( parseMetadata "${withoutDepth}" 2 )"
+  symbol="${symbol:0:1}"
+  local hideFlag
+  hideFlag="$( parseMetadata "${withoutDepth}" 3 )"
+  hideFlag="${hideFlag:0:1}"
+
+  local newTitleLine="${depth_markers} ${title}のコピー [${progress},${symbol},${hideFlag}]"
+  # 先頭行を置換
+  sed -i "1c ${newTitleLine}" "${tmpfileSelect}"
+
+  # 挿入位置は抽出したtmpfileSelectの行数分だけ進めた行の直後
+  local tmpLinesCount
+  tmpLinesCount=$(wc -l < "${tmpfileSelect}" | tr -d ' ')
+  local insertAfterLine=$(( ${startLineSelectNode} + ${tmpLinesCount} - 1 ))
+
+  if [[ ${insertAfterLine} -ge ${#fileLines[@]} ]]; then
+    # 末尾に追加
+    cat "${inputFile}" "${tmpfileSelect}" > "${tmpfile1}"
+    cat "${tmpfile1}" > "${inputFile}"
+  else
+    head -n "${insertAfterLine}" "${inputFile}" > "${tmpfileHeader}"
+    tail -n +$(( ${insertAfterLine} + 1 )) "${inputFile}" > "${tmpfileFooter}"
+    cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileFooter}" > "${tmpfile1}"
+    cat "${tmpfile1}" > "${inputFile}"
+  fi
+
+  displayLastTree
+  exit 0
+
+ }
+
+}
+
 : "バックアップ関数" && {
   ##############################################################################
   # バックアップ作成
@@ -2050,7 +2184,7 @@
     ######################################
     #バックアップ作成
     ######################################
-    makeBackupActionList=('e' 'd' 'i' 'ie' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'mt' 'gmt' 'c' 's')
+    makeBackupActionList=('e' 'd' 'i' 'ie' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'mt' 'gmt' 'c' 's' 'cp')
     if arrayContains "${action}" "${makeBackupActionList[@]}"; then
       makeBackup
     fi
@@ -2066,7 +2200,7 @@
   function parameterCheck {
     
     #動作指定のチェック
-    allowActionList=('h' 'gh' 'e' 'd' 'gd' 'i' 'ie' 't' 'th' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'mt' 'gmt' 'j' 'gj' 'k' 'gk' 'gc' 's' 'o')
+    allowActionList=('h' 'gh' 'e' 'd' 'gd' 'i' 'ie' 't' 'th' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'mt' 'gmt' 'j' 'gj' 'k' 'gk' 'gc' 's' 'o' 'cp')
     if ! arrayContains "${action}" "${allowActionList[@]}"; then
       echo '引数2:無効なアクションです'
       read -s -n 1 c
@@ -2074,7 +2208,7 @@
     fi
 
     unset allowActionList
-    allowActionList=('h' 'gh' 'e' 'd' 'gd' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'mt' 'gmt' 'j' 'gj' 'k' 'gk' 'gc' 's' 'o')
+    allowActionList=('h' 'gh' 'e' 'd' 'gd' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'mt' 'gmt' 'j' 'gj' 'k' 'gk' 'gc' 's' 'o' 'cp')
     if arrayContains "${action}" "${allowActionList[@]}"; then
       if [[ ${indexNo} = '' ]] ; then
         echo "ノードを指定してください"
@@ -2332,6 +2466,10 @@
       ie)
         clear
         insertEdit
+        ;;
+      cp)
+        clear
+        copyNode
         ;;
       mu|md)
         clear
