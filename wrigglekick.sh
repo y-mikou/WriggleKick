@@ -6,6 +6,8 @@
   ##############################################################################
   selected_editor='selected_editor'
                   #^^^^^^^^^^^^^^^ここにお好みのエディター呼び出しコマンドを設定してください
+  selected_editor2='selected_editor2'
+                   #^^^^^^^^^^^^^^^ここにお好みのエディター呼び出しコマンドを設定してください
   selected_viewer='selected_viewer'
                   #^^^^^^^^^^^^^^^ここにお好みのビューワー呼び出しコマンドを設定してください
                   #ビューワとしてlessなどの編集モードを持つものを指定しても、閲覧のみが可能です。
@@ -43,6 +45,7 @@
     echo '　　　　　v.....対象ノードの閲覧'
     echo '　　　　　gv....対象ノードの配下ノードを横断的に閲覧'
     echo '　　　　　e.....対象ノードの編集'
+    echo '　　　　　e2....対象ノードの編集（selected_editor2を使用）'
     echo '　　　　　d.....対象ノードの削除'
     echo '　　　　　gd....対象ノードの削除'
     echo '　　　　　h.....対象ノードに不可視フラグを設定(1:不可視/0:可視)'
@@ -396,9 +399,10 @@
   function help-e {
     clear
     echo '■e系コマンド ヘルプ'
-    echo '書式: (bash) wrigglekick.sh [対象ファイル] (e) [対象ノード番号] [終了ノード番号]'
+    echo '書式: (bash) wrigglekick.sh [対象ファイル] (e/e2) [対象ノード番号] [終了ノード番号]'
     echo ''
-    echo 'e系コマンド([e]dit)には、他にはファミリーはありません。'
+    echo 'e系コマンド([e]dit)には、eとe2があります。'
+    echo 'eは「selected_editor」、e2は「selected_editor2」に設定したエディタを使用します。'
     echo ''
     echo 'eコマンドのみ、コマンド自体を省略できます。即ち'
     echo '(bash) wrigglekick.sh [対象ファイル] [対象ノード番号]'
@@ -445,7 +449,7 @@
       's') help-s;;
       'i'|'ie') help-i;;
       'o') help-o;;
-      'e') help-e;;
+      'e'|'e2') help-e;;
       *) commandList;;
     esac
   }
@@ -1284,7 +1288,11 @@
       wait
     )
 
-    "${selected_editor}" "${tmpfileSelect}"
+    local editor="${selected_editor}"
+    if [[ "${action}" == 'e2' ]]; then
+      editor="${selected_editor2}"
+    fi
+    "${editor}" "${tmpfileSelect}"
     wait
     sed -i -e '$a\' "${tmpfileSelect}" #編集の結果末尾に改行がない場合'
     cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileFooter}" > "${inputFile}"
@@ -2183,7 +2191,7 @@
   function parameterCheck {
     
     #動作指定のチェック
-    allowActionList=('h' 'gh' 'e' 'd' 'gd' 'i' 'ie' 't' 'th' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'mt' 'gmt' 'j' 'gj' 'k' 'gk' 'gc' 's' 'o' 'cp')
+    allowActionList=('h' 'gh' 'e' 'e2' 'd' 'gd' 'i' 'ie' 't' 'th' 'tl' 'ta' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'mt' 'gmt' 'j' 'gj' 'k' 'gk' 'gc' 's' 'o' 'cp')
     if ! arrayContains "${action}" "${allowActionList[@]}"; then
       echo '引数2:無効なアクションです'
       read -s -n 1 c
@@ -2191,7 +2199,7 @@
     fi
 
     unset allowActionList
-    allowActionList=('h' 'gh' 'e' 'd' 'gd' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'mt' 'gmt' 'j' 'gj' 'k' 'gk' 'gc' 's' 'o' 'cp')
+    allowActionList=('h' 'gh' 'e' 'e2' 'd' 'gd' 'f' 'fl' 'fa' 'v' 'gv' 'ml' 'mr' 'md' 'mu' 'gml' 'gmr' 'gmu' 'gmd' 'mt' 'gmt' 'j' 'gj' 'k' 'gk' 'gc' 's' 'o' 'cp')
     if arrayContains "${action}" "${allowActionList[@]}"; then
       if [[ ${indexNo} = '' ]] ; then
         echo "ノードを指定してください"
@@ -2403,6 +2411,9 @@
         groupView
         ;;
       e)
+        editNode
+        ;;
+      e2)
         editNode
         ;;
       d)
