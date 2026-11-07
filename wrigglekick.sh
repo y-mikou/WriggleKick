@@ -8,6 +8,8 @@
                   #^^^^^^^^^^^^^^^ここにお好みのエディター呼び出しコマンドを設定してください
   selected_editor2='selected_editor2'
                    #^^^^^^^^^^^^^^^ここにお好みのエディター呼び出しコマンドを設定してください
+                   #引数付きも可能: selected_editor='edit --xxxx'
+                   #引数自体に空白を含む場合は配列で記述: selected_editor2=('code' '--wait' '--user-data-dir' '/tmp/editor data')
   selected_viewer='selected_viewer'
                   #^^^^^^^^^^^^^^^ここにお好みのビューワー呼び出しコマンドを設定してください
                   #ビューワとしてlessなどの編集モードを持つものを指定しても、閲覧のみが可能です。
@@ -415,7 +417,9 @@
     echo ''
     echo '当スクリプトでは、編集は稼働する環境にあるテキストエディタを呼び出す形で実現されます。'
     echo '当スクリプト冒頭の変数「selected_editor」の値を、任意のエディタ呼び出しコマンド(例えばviなど)に置き換えてください。'
-    echo '指定がない場合、ms_edit > micro > nano > vi > ed の優先順で存在するものが使用されます。'
+    echo "引数付きの例: selected_editor='edit --xxxx'（selected_editor2も同様）"
+    echo "空白を含むパスや引数は配列で指定してください。例: selected_editor=('code' '--wait' '/tmp/editor data')"
+    echo '指定がない場合、edit > micro > nano > vi > ed の優先順で存在するものが使用されます。'
   }
 
   function help-cp {
@@ -1288,11 +1292,12 @@
       wait
     )
 
-    local editor="${selected_editor}"
+    local -a editor=("${selected_editor[@]}")
     if [[ "${action}" == 'e2' ]]; then
-      editor="${selected_editor2}"
+      editor=("${selected_editor2[@]}")
     fi
-    "${editor}" "${tmpfileSelect}"
+    parseEditorCommand "${editor[@]}"
+    "${parsedEditorCommand[@]}" "${tmpfileSelect}"
     wait
     sed -i -e '$a\' "${tmpfileSelect}" #編集の結果末尾に改行がない場合'
     cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileFooter}" > "${inputFile}"
@@ -2059,6 +2064,15 @@
 }
 
 : "初期処理" && {
+  #文字列は空白で分割し、配列指定では各引数をそのまま保持する。
+  #結果はparsedEditorCommand配列に格納する。evalによるシェル構文の実行はしない。
+  function parseEditorCommand {
+    parsedEditorCommand=("$@")
+    if [[ ${#parsedEditorCommand[@]} -eq 1 ]] && ! command -v "${parsedEditorCommand[0]}" >/dev/null 2>&1; then
+      IFS=$' \t\n' read -r -a parsedEditorCommand <<< "${1}"
+    fi
+  }
+
   ##############################################################################
   # 初期処理
   ##############################################################################
@@ -2103,12 +2117,16 @@
     #editorList配列の優先順で存在するコマンドに決定される。
     #ユーザによる書き換えも想定
     #(selected_editor部分を任意のエディター起動コマンドに変更)
-    editorList=("${selected_editor}" 'edit' 'micro' 'nano' 'vi' 'ed')
+    parseEditorCommand "${selected_editor[@]}"
+    editorList=("${parsedEditorCommand[0]}" 'edit' 'micro' 'nano' 'vi' 'ed')
     for itemE in "${editorList[@]}" ; do
       #コマンドがエラーを返すか否かで判断
       \command -v "${itemE}" >/dev/null 2>&1
       if [[ ${?} = 0 ]] ; then
-        selected_editor="${itemE}"
+        #設定済みコマンドが存在する場合、元の引数も保持する。
+        if [[ "${itemE}" != "${parsedEditorCommand[0]}" ]]; then
+          selected_editor=("${itemE}")
+        fi
         break
       fi
     done
