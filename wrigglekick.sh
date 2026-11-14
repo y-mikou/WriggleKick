@@ -412,6 +412,7 @@
     echo ''
     echo 'e系コマンドは対象ファイルの指定ノードをエディタへ渡します。'
     echo '終了ノード番号を指定した場合には、対象ノードから終了ノードの範囲全体をエディタへ渡します。'
+    echo '開始・終了には実在するノード番号を指定し、終了は開始以上にしてください。終了に - を指定すると末尾まで編集します。'
     echo '更に、当スクリプト冒頭の変数「edit_mode_extend_lines」の値が0以外の場合、'
     echo 'その値の行数だけ前後に拡大した範囲をエディタへ渡します。'
     echo ''
@@ -1554,7 +1555,12 @@
     else
       # 移動先が移動元より前にある場合
       head -n "${dstEndLine}" "${inputFile}" > "${tmpfileHeader}"
-      sed -n "$((dstEndLine + 1)),$((srcStartLine - 1))p" "${inputFile}" > "${tmpfileTarget}"
+      # 隣接時の逆順sed範囲は先頭行を出力してしまうため、空の中間部分を明示する。
+      if [[ $((dstEndLine + 1)) -lt ${srcStartLine} ]]; then
+        sed -n "$((dstEndLine + 1)),$((srcStartLine - 1))p" "${inputFile}" > "${tmpfileTarget}"
+      else
+        printf '' > "${tmpfileTarget}"
+      fi
       tail -n +$((srcEndLine + 1)) "${inputFile}" > "${tmpfileFooter}"
       cat "${tmpfileHeader}" "${tmpfileSelect}" "${tmpfileTarget}" "${tmpfileFooter}" > "${inputFile}"
     fi
@@ -2202,6 +2208,20 @@
 }
 
 : "パラメーターチェック" && {
+  # 算術評価の前に検証し、先頭の0を除いた10進数を返す。
+  # 巨大な値の桁あふれや、08などの8進数解釈を避ける。
+  function checkedNodeNumber {
+    local number="${1}"
+    [[ "${number}" =~ ^[0-9]+$ ]] || return 1
+    number="${number#"${number%%[!0]*}"}"
+    [[ -n "${number}" ]] || return 1
+    [[ ${#number} -le ${#maxNodeCnt} ]] || return 1
+    if [[ ${#number} -eq ${#maxNodeCnt} ]] && [[ "${number}" > "${maxNodeCnt}" ]]; then
+      return 1
+    fi
+    echo "${number}"
+  }
+
   ##############################################################################
   # 引数:なし(グローバルのみ)
   # 戻り値:0(成功)/9(失敗)
@@ -2225,20 +2245,49 @@
         return 1
       fi
     fi
-    if arrayContains "${action}" "${allowActionList[@]}"; then
-      if [[ ! "${indexNo}" =~ ^[0-9]+$ ]] ; then
-        echo "ノード番号の指定が不正です：${indexNo}"
+    # 挿入位置も既存ノードを参照する。省略時だけ末尾への挿入を許可する。
+    if arrayContains "${action}" "${allowActionList[@]}" ||
+       { [[ "${action}" == 'i' || "${action}" == 'ie' ]] && [[ -n "${indexNo}" ]]; }; then
+      local checkedIndex
+      if ! checkedIndex=$(checkedNodeNumber "${indexNo}"); then
+        echo "ノード番号の指定が不正です：${indexNo}（有効範囲: 1〜${maxNodeCnt}）"
         read -s -n 1 c
         return 1
       fi
+      indexNo="${checkedIndex}"
     fi
-    if arrayContains "${action}" "${allowActionList[@]}"; then
-      if [[ ${indexNo} -le 0 ]] || [[ ${indexNo} -gt ${maxNodeCnt} ]] ; then
-        echo "${indexNo}番目のノードは存在しません"
-        read -s -n 1 c
-        return 1
-      fi
-    fi
+
+    case "${action}" in
+      e|e2|ml|mr)
+        if [[ -n "${option}" ]]; then
+          if [[ "${action}" == 'e' || "${action}" == 'e2' ]] && [[ "${option}" == '-' ]]; then
+            : # 編集の末尾指定
+          else
+            local checkedEnd
+            if ! checkedEnd=$(checkedNodeNumber "${option}"); then
+              echo "終了ノード番号の指定が不正です：${option}（有効範囲: 1〜${maxNodeCnt}）"
+              read -s -n 1 c
+              return 1
+            fi
+            if [[ ${checkedEnd} -lt ${indexNo} ]]; then
+              echo "範囲指定が不正です: 終了ノード(${option})は開始ノード(${indexNo})以上にしてください"
+              read -s -n 1 c
+              return 1
+            fi
+            option="${checkedEnd}"
+          fi
+        fi
+        ;;
+      mt|gmt|cp)
+        local checkedDestination
+        if ! checkedDestination=$(checkedNodeNumber "${option}"); then
+          echo "移動・複製先ノード番号の指定が不正です：${option}（有効範囲: 1〜${maxNodeCnt}）"
+          read -s -n 1 c
+          return 1
+        fi
+        option="${checkedDestination}"
+        ;;
+    esac
 
     local depth=$(getDepth ${indexNo})
 
@@ -2530,8 +2579,11 @@ if [[ "${1}" = 'h' ]] || [[ "${1}" = '-h' ]] || [[ "${1}" = '--help' ]] || [[ "$
 fi
 
 main "${1}" "${2}" "${3}" "${4}"
+mainStatus=$?
 
 # 正常終了したときに一時ファイルを削除する
 trap rm_tmpfile EXIT
 # 異常終了したときに一時ファイルを削除する
 trap 'trap - EXIT; rm_tmpfile; exit -1' INT PIPE TERM
+
+exit "${mainStatus}"
